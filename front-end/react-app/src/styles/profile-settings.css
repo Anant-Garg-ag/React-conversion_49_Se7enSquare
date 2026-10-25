@@ -19,7 +19,9 @@
   --rail-w: 70px;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -73,7 +75,12 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(91, 110, 245, 0.25), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(91, 110, 245, 0.25),
+    transparent
+  );
 }
 
 .tb-logo {
@@ -123,7 +130,8 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .tb-btn {
@@ -163,6 +171,45 @@
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.tb-action {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 72px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.tb-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+}
+
+.tb-action-save {
+  width: 112px;
+  color: #fff;
+}
+
+.tb-action:disabled {
+  color: #fff;
+  opacity: 0.45;
+  cursor: default;
 }
 
 .tb-av {
@@ -211,7 +258,7 @@
 }
 
 .nav-profile:hover {
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .profile-av-wrap {
@@ -229,7 +276,7 @@
   font-size: 24px;
   font-weight: 800;
   font-family: "Syne", sans-serif;
-  border: 3px solid rgba(91,110,245,0.3);
+  border: 3px solid rgba(91, 110, 245, 0.3);
   background-size: cover;
   background-position: center;
 }
@@ -352,8 +399,14 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .settings-card {
@@ -395,7 +448,7 @@
   font-size: 32px;
   font-weight: 800;
   font-family: "Syne", sans-serif;
-  border: 4px solid rgba(255,255,255,0.03);
+  border: 4px solid rgba(255, 255, 255, 0.03);
   background-size: cover;
   background-position: center;
 }
@@ -413,7 +466,7 @@
   font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.04);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-2);
   transition: all 0.15s;
   display: flex;
@@ -459,7 +512,9 @@
   letter-spacing: 0.5px;
 }
 
-.field input, .field textarea, .field select {
+.field input,
+.field textarea,
+.field select {
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -471,7 +526,9 @@
   transition: border-color 0.15s;
 }
 
-.field input:focus, .field textarea:focus, .field select:focus {
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
   border-color: var(--accent);
 }
 
@@ -490,6 +547,42 @@
 textarea {
   resize: vertical;
   min-height: 100px;
+}
+
+/* Status Badges */
+.badge-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.status-badge:hover {
+  background: var(--bg-hover);
+}
+
+.status-badge.on {
+  border-color: var(--accent);
+  background: rgba(91, 110, 245, 0.05);
+}
+
+.status-badge .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 
 /* Toggles */
@@ -544,6 +637,46 @@ textarea {
 
 .toggle.on::after {
   transform: translateX(20px);
+}
+
+/* Theme Grid */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.theme-opt {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.theme-opt:hover {
+  border-color: var(--accent);
+}
+
+.theme-opt.on {
+  border-color: var(--accent);
+  background: rgba(91, 110, 245, 0.05);
+}
+
+.theme-swatch {
+  height: 80px;
+  border-radius: 8px;
+  border: 1px solid var(--border-2);
+}
+
+.theme-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
 }
 
 /* Danger Zone */
@@ -632,7 +765,7 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   z-index: 100;
   display: none;
@@ -651,13 +784,19 @@ textarea {
   padding: 28px;
   width: 440px;
   max-width: 90vw;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @keyframes modalIn {
-  from { transform: scale(0.9) translateY(20px); opacity: 0; }
-  to { transform: scale(1) translateY(0); opacity: 1; }
+  from {
+    transform: scale(0.9) translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal-header {
@@ -685,7 +824,7 @@ textarea {
 }
 
 .drop-zone {
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
   border: 2px dashed var(--border);
   border-radius: 12px;
   padding: 32px;
@@ -711,7 +850,7 @@ textarea {
   padding: 12px 24px;
   font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   z-index: 1000;
   opacity: 0;
   pointer-events: none;
@@ -759,8 +898,8 @@ textarea {
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
-  align-items:center;
-  justify-content:center;
+  align-items: center;
+  justify-content: center;
   gap: 6px;
   text-decoration: none;
   font-family: "DM Sans", sans-serif;
@@ -809,7 +948,3 @@ textarea {
     flex-wrap: wrap;
   }
 }
-
-.profile-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
-.profile-error { color: #f87171; padding: 12px; border: 1px solid currentColor; border-radius: 8px; margin-bottom: 16px; }
-.profile-fields .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
