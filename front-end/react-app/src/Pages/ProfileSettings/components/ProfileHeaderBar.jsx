@@ -1,50 +1,64 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { getHomeRoute } from '../../../services/roleAccess';
+import React from "react";
 
 /**
  * Top bar — brand, page label, Discard / Save buttons, avatar thumbnail, Logout.
  */
 export default function ProfileHeaderBar({
-  formData, isDirty, canDiscard, initials, saving,
-  onDiscard, onSave, onLogout, userRole
+  formData,
+  isDirty,
+  initials,
+  onDiscard,
+  onSave,
+  onLogout,
 }) {
   return (
     <div className="top-bar">
-      <Link to={getHomeRoute(userRole)} className="tb-logo" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+      <div className="tb-logo">
         <div className="tb-logo-icon">⬡</div>
         <span className="tb-logo-name">Gameunity</span>
-      </Link>
+      </div>
       <div className="tb-sep"></div>
       <div className="tb-page">⚙️ Profile &amp; Settings</div>
       <div className="tb-right">
         <button
-          className="tb-btn"
+          className="tb-action"
+          type="button"
           onClick={onDiscard}
-          disabled={!canDiscard || saving}
-          style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: canDiscard ? 'pointer' : 'default' }}
+          disabled={!isDirty}
         >
           Discard
         </button>
         <button
-          className={`tb-btn save ${isDirty ? 'pulse' : ''}`}
+          className="tb-action tb-action-save"
           id="btnSaveAll"
+          type="button"
           onClick={onSave}
-          disabled={!isDirty || saving}
+          disabled={!isDirty}
         >
-          {saving ? 'Saving…' : 'Save Changes'}
+          Save Changes
         </button>
         <div
           className="tb-av user-avatar"
           style={{
-            backgroundImage: formData.avatar ? `url(${formData.avatar})` : 'none',
-            backgroundSize: 'cover', backgroundPosition: 'center',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700,
+            backgroundImage: formData.avatar
+              ? `url(${formData.avatar})`
+              : "none",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
           }}
         >
           {!formData.avatar && initials}
         </div>
-        <button type="button" className="logout-btn" onClick={onLogout} aria-label="Log out">
+        <button
+          type="button"
+          className="logout-btn"
+          onClick={onLogout}
+          aria-label="Log out"
+        >
           Logout
         </button>
       </div>
