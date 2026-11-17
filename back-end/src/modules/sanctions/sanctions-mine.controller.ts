@@ -7,7 +7,6 @@ import {
   Post,
 } from '@nestjs/common';
 import {
-  ApiBody,
   ApiCreatedResponse,
   ApiHeader,
   ApiOkResponse,
