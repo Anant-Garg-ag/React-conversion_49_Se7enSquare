@@ -50,6 +50,10 @@ export default function EventCard({
           alt={event.title}
           className="ev-card-banner-img"
           loading="lazy"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/assets/gaming/fps-banner.svg';
+          }}
         />
         <div className="ev-card-banner-overlay" />
         <div className="ev-card-badges">

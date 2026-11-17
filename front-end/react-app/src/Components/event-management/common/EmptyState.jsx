@@ -3,6 +3,7 @@ import React from 'react';
 
 export default function EmptyState({
   icon = '📋',
+  illustration,
   title = 'No items found',
   subtitle,
   actionText,
@@ -15,7 +16,15 @@ export default function EmptyState({
       className={`empty-state ${className}`.trim()}
       style={style}
     >
-      {icon && <div className="empty-state-icon" style={{ fontSize: '40px', marginBottom: '10px' }}>{icon}</div>}
+      {illustration ? (
+        <img
+          src={illustration}
+          alt="Illustration"
+          style={{ width: '130px', height: 'auto', marginBottom: '16px', opacity: 0.85 }}
+        />
+      ) : icon ? (
+        <div className="empty-state-icon" style={{ fontSize: '40px', marginBottom: '10px' }}>{icon}</div>
+      ) : null}
       {title && <div className="empty-state-text" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '6px' }}>{title}</div>}
       {subtitle && <div className="empty-state-sub" style={{ color: 'var(--text-3, #9ca3af)', fontSize: '13px', marginBottom: actionText ? '15px' : '0' }}>{subtitle}</div>}
       {actionText && onAction && (
