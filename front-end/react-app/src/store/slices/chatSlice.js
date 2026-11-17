@@ -10,7 +10,11 @@ import { logout } from './authSlice';
  */
 
 const asArray = (data) => (Array.isArray(data) ? data : []);
-const timeOf = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+const timeOf = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 
 // Backend stores reactions as { "👍": [userId, userId, ...] } (who reacted).
 // The count is the array length. Emojis with nobody left are hidden.
