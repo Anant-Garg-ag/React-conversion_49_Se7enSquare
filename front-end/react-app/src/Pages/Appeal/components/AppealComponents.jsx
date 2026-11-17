@@ -1,6 +1,7 @@
 import React from 'react';
+import { useSelector } from 'react-redux';
 import { NEXT_STEPS } from '../../../Components/platform/data/appealData';
-import { authService } from '../../../services/authService';
+import { selectCurrentUser } from '../../../store/slices/authSlice';
 import { getHomeRoute } from '../../../services/roleAccess';
 
 /**
@@ -243,6 +244,7 @@ export function AppealSidebar({ myAppeals }) {
  * Success screen shown after a successful appeal submission.
  */
 export function AppealSuccess({ refId, navigate, onReset }) {
+  const currentUser = useSelector(selectCurrentUser);
   return (
     <div className="main">
       <header className="header">
@@ -267,7 +269,7 @@ export function AppealSuccess({ refId, navigate, onReset }) {
             Reference ID: <span style={{ fontFamily: 'monospace', color: '#818cf8' }}>{refId}</span>
           </div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <button onClick={() => navigate(getHomeRoute(authService.getCurrentUser()?.role))} style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}>Return to Home</button>
+            <button onClick={() => navigate(getHomeRoute(currentUser?.role))} style={{ padding: '10px 20px', background: '#6366f1', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}>Return to Home</button>
             <button onClick={onReset} style={{ padding: '10px 20px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: '#aaa', cursor: 'pointer', fontSize: '14px' }}>Submit Another Appeal</button>
           </div>
         </div>

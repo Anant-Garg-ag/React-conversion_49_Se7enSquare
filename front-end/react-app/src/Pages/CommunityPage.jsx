@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import useCommunityPage, { memberCountOf } from '../Components/platform/hooks/useCommunityPage';
-import { authService } from '../services/authService';
+import { selectCurrentUser } from '../store/slices/authSlice';
 import { getHomeRoute } from '../services/roleAccess';
 import CommunityBanner from './CommunityPage/components/CommunityBanner';
 import CommunityNav from './CommunityPage/components/CommunityNav';
@@ -18,6 +19,7 @@ import '../styles/community-page.css';
  */
 export default function CommunityPage() {
   const navigate = useNavigate();
+  const currentUser = useSelector(selectCurrentUser);
   const { id: paramId } = useParams();
   const [searchParams] = useSearchParams();
   const id = paramId || searchParams.get('id') || '1';
@@ -80,7 +82,7 @@ export default function CommunityPage() {
         <div className="breadcrumb">
           <button className="breadcrumb-link" onClick={() => navigate('/discovery')}>Discover</button>
           <span className="sep">›</span>
-          <button className="breadcrumb-link" onClick={() => navigate(getHomeRoute(authService.getCurrentUser()?.role))}>Dashboard</button>
+          <button className="breadcrumb-link" onClick={() => navigate(getHomeRoute(currentUser?.role))}>Dashboard</button>
           <span className="sep">›</span>
           <span className="current" id="breadcrumbCommunityName">{community.name}</span>
         </div>

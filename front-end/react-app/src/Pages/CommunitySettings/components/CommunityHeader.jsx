@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../../../services/authService';
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../../../store/slices/authSlice';
 import { getHomeRoute } from '../../../services/roleAccess';
 
 /**
@@ -8,7 +9,7 @@ import { getHomeRoute } from '../../../services/roleAccess';
  */
 export default function CommunityHeader({ community, communityId, onAddChannel }) {
   const navigate = useNavigate();
-  const user = authService.getCurrentUser();
+  const user = useSelector(selectCurrentUser);
 
   return (
     <header className="topbar">
