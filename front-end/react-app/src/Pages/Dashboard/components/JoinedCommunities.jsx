@@ -11,20 +11,33 @@ export default function JoinedCommunities({ communities, createdCommunities, loa
   const createdIds = new Set((createdCommunities || []).map((c) => String(c.id)));
   const joinedOnly = (communities || []).filter((c) => !createdIds.has(String(c.id)));
 
-  const CommunityCard = ({ comm }) => (
-    <div
-      className="comm-card"
-      style={{ cursor: 'pointer' }}
-      onClick={() => navigate(`/community-page?id=${comm.id}`)}
-    >
-      <div className="comm-card-banner banner-purple" />
-      <div className="comm-card-icon grad-purple">{comm.icon || '🏘️'}</div>
-      <div className="comm-card-name">{comm.name}</div>
-      <div className="comm-card-meta">
-        <span>{(comm.members || comm.memberCount || 0).toLocaleString()} members</span>
+  const CommunityCard = ({ comm }) => {
+    // banner is either a CSS gradient (saved by the Create wizard) or an image
+    // URL (uploaded in Settings). A gradient is already a valid background-image,
+    // so only image URLs get wrapped in url(); url(linear-gradient(...)) was blank.
+    const bannerStyle = comm.banner
+      ? {
+          backgroundImage: comm.banner.includes('gradient(') ? comm.banner : `url(${comm.banner})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }
+      : { background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' };
+
+    return (
+      <div
+        className="comm-card"
+        style={{ cursor: 'pointer' }}
+        onClick={() => navigate(`/community-page?id=${comm.id}`)}
+      >
+        <div className="comm-card-banner" style={bannerStyle} />
+        <div className="comm-card-icon">{comm.icon || '🎮'}</div>
+        <div className="comm-card-name" title={comm.name}>{comm.name}</div>
+        <div className="comm-card-meta">
+          <span>👥 {(comm.members || comm.memberCount || 0).toLocaleString()} members</span>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (loading) {
     return (

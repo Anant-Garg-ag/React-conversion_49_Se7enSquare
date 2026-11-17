@@ -1,5 +1,6 @@
 // Page container component for Events & Tournaments module.
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import SideBar from '../../Components/SideBar';
 import '../../styles/global.css';
 import '../../styles/events.css';
@@ -7,15 +8,12 @@ import '../../styles/events.css';
 import { useEvents } from '../../Components/event-management/hooks/useEvents';
 import { useRegistrations } from '../../Components/event-management/hooks/useRegistrations';
 import { useToast } from '../../Components/event-management/hooks/useToast';
-import {
-  CATEGORIES,
-  getCurrentUser,
-} from '../../Components/event-management/utils/constants';
+import { CATEGORIES } from '../../Components/event-management/utils/constants';
 import { getCommunityObject } from '../../Components/event-management/utils/getCommunityName';
-import { eventService } from '../../Components/event-management/services/eventService';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import { fetchCommunityList, selectAllCommunities } from '../../store/slices/communitiesSlice';
 
 import PageHeader from '../../Components/event-management/common/PageHeader';
-import Toast from '../../Components/event-management/common/Toast';
 
 import CategoryFilterChips from './CategoryFilterChips';
 import FeaturedEventBanner from './FeaturedEventBanner';
@@ -24,28 +22,24 @@ import EventDetailModal from './EventDetailModal';
 import RegistrationModal from './RegistrationModal';
 
 export default function Events() {
-  const user = getCurrentUser();
+  const dispatch = useDispatch();
+  const user = useSelector(selectCurrentUser);
+  const communities = useSelector(selectAllCommunities);
   const [detailEvent, setDetailEvent] = useState(null);
   const [registerEvent, setRegisterEvent] = useState(null);
-  const [communities, setCommunities] = useState([]);
 
-  const { toastMsg, showToast } = useToast();
+  const { showToast } = useToast();
   const {
     loading: eventsLoading,
     selectedCategory,
     setSelectedCategory,
     upcomingEvents,
     deleteEvent,
-    updateAttendeeCount,
   } = useEvents();
 
   useEffect(() => {
-    eventService.getCommunities()
-      .then((data) => {
-        if (Array.isArray(data)) setCommunities(data);
-      })
-      .catch(() => {});
-  }, []);
+    dispatch(fetchCommunityList());
+  }, [dispatch]);
 
   const { isRegistered, registerForEvent, cancelRegistration } = useRegistrations();
 
@@ -64,7 +58,6 @@ export default function Events() {
     }
     const res = await registerForEvent(ev, regData);
     if (res.success) {
-      updateAttendeeCount(ev.id, 1);
       showToast('Registered successfully!');
       setRegisterEvent(null);
     } else {
@@ -75,7 +68,6 @@ export default function Events() {
   const handleCancel = async (regOrEv) => {
     if (!window.confirm(`Cancel registration for "${regOrEv.title || regOrEv.eventTitle || 'this event'}"?`)) return;
     await cancelRegistration(regOrEv);
-    updateAttendeeCount(regOrEv.id || regOrEv.eventId, -1);
     showToast('Registration cancelled.');
   };
 
@@ -143,8 +135,7 @@ export default function Events() {
           onSubmit={handleConfirmRegistration}
         />
 
-        <Toast message={toastMsg} />
-      </div>
+        </div>
     </div>
   );
 }

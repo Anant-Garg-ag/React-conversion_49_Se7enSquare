@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { authService } from '../../../services/authService';
+import { loginSuccess } from '../../../store/slices/authSlice';
+import { toastShown } from '../../../store/slices/uiSlice';
 import { initiateGoogleSignIn } from '../../../services/googleAuth';
 import { getHomeRoute } from '../../../services/roleAccess';
 
@@ -18,21 +21,15 @@ export const PERSONAS = [
  */
 export default function useAuthForm() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   // ── 1. Tab & View State ──
   // Tabs: 'login' | 'register' | 'forgot' | 'forgot-success'
   const [currentTab, setCurrentTab] = useState('login');
   const [cardShake, setCardShake] = useState(false);
 
-  // ── 2. Toast State ──
-  const [toast, setToast] = useState({ show: false, icon: '✅', msg: '' });
-
-  const showToast = (icon, msg) => {
-    setToast({ show: true, icon, msg });
-    setTimeout(() => {
-      setToast({ show: false, icon: '✅', msg: '' });
-    }, 3500);
-  };
+  // ── 2. Toast (app-wide Redux toast) ──
+  const showToast = (icon, msg) => dispatch(toastShown({ icon, msg, duration: 3500 }));
 
   const triggerShake = () => {
     setCardShake(true);
@@ -61,6 +58,13 @@ export default function useAuthForm() {
             : 'This account has been suspended.');
         setLoginErrors((prev) => ({ ...prev, general: msg, isSanctioned: true }));
         showToast('⚠️', msg);
+      }
+      // Set by handleRoleMismatch() in services/api.js after an admin changed
+      // this user's role: explain why they were logged out.
+      if (params.get('roleChanged')) {
+        const msg = 'Your role was changed by an admin. Please log in again.';
+        setLoginErrors((prev) => ({ ...prev, general: msg }));
+        showToast('ℹ️', msg);
       }
     }
   }, []);
@@ -104,7 +108,7 @@ export default function useAuthForm() {
         role: loginRole,
       });
 
-      authService.saveSession(user);
+      dispatch(loginSuccess(user));
 
       showToast(
         '✅',
@@ -305,6 +309,7 @@ export default function useAuthForm() {
           accessToken: result.accessToken,
           credential: result.credential,
         });
+        dispatch(loginSuccess(user));
 
         showToast(
           '🎉',
@@ -330,7 +335,6 @@ export default function useAuthForm() {
     currentTab,
     setCurrentTab,
     cardShake,
-    toast,
     showToast,
     // Login
     loginEmail,

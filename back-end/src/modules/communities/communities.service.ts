@@ -63,12 +63,28 @@ export class CommunitiesService {
     };
 
     db.communities.push(created);
+
+    // The creator becomes a member with role 'owner' immediately. Before,
+    // this membership was only added by the start-up migration, so a new
+    // community showed 0 members (and no owner) until the server restarted.
+    // The migration skips it on restart because it already exists.
+    db.memberships.push({
+      id: nextId('membership'),
+      userId: resolvedOwnerId,
+      communityId: created.id,
+      role: 'owner',
+      joinedAt: new Date().toISOString(),
+    });
+
     saveDb();
     return created;
   }
 
   update(id: number, payload: UpdateCommunityDto): CommunityRecord {
-    const community = this.findOne(id);
+    const rawCommunity = db.communities.find((item) => item.id === id);
+    if (!rawCommunity) {
+      throw new NotFoundException(`Community with id ${id} not found`);
+    }
 
     if (payload.ownerId) {
       const owner = db.users.find((user) => user.id === payload.ownerId);
@@ -78,7 +94,7 @@ export class CommunitiesService {
     }
 
     if (payload.channels) {
-      const { plan } = this.subscriptionsService.status(community.ownerId);
+      const { plan } = this.subscriptionsService.status(rawCommunity.ownerId);
       const limit = CHANNEL_LIMIT_BY_PLAN[plan] ?? CHANNEL_LIMIT_BY_PLAN.free;
       if (limit !== null && payload.channels.length > limit) {
         throw new ForbiddenException(
@@ -87,9 +103,9 @@ export class CommunitiesService {
       }
     }
 
-    Object.assign(community, payload);
+    Object.assign(rawCommunity, payload);
     saveDb();
-    return community;
+    return this.findOne(id);
   }
 
   remove(id: number): { message: string } {

@@ -1,6 +1,5 @@
 import React from 'react';
 import AppShell from '../Components/platform/layout/AppShell';
-import Toast from '../Components/platform/common/Toast';
 import useReportForm from '../Components/platform/hooks/useReportForm';
 import ReportHeader from './Report/components/ReportHeader';
 import ReportStepper from './Report/components/ReportStepper';
@@ -32,7 +31,6 @@ export default function Report() {
     selectedTarget,
     setSelectedTarget,
     searchResults,
-    toast,
     submitting,
     handleUserSearch,
     submitReport,
@@ -43,7 +41,7 @@ export default function Report() {
   const userInitials = (currentUser.firstName?.slice(0, 2) || 'US').toUpperCase();
 
   return (
-    <AppShell customHeader={<ReportHeader userInitials={userInitials} />}>
+    <AppShell customHeader={<ReportHeader userInitials={userInitials} target={selectedTarget} />}>
       <div className="page-wrap">
         <div className="report-container">
           <ReportStepper step={step} submitted={submitted} />
@@ -91,8 +89,6 @@ export default function Report() {
           )}
         </div>
       </div>
-
-      <Toast toast={toast} />
     </AppShell>
   );
 }

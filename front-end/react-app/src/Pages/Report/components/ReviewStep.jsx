@@ -24,11 +24,7 @@ export default function ReviewStep({
           <div className="review-row">
             <div className="review-key">Report Type</div>
             <div className="review-val" id="rvType">
-              {selectedTarget?.type === 'message'
-                ? 'Message Report'
-                : selectedTarget?.type === 'community'
-                ? 'Community Report'
-                : 'User Report'}
+              {selectedTarget?.type === 'message' ? 'Message Report' : 'User Report'}
             </div>
           </div>
           <div className="review-row">
@@ -37,9 +33,15 @@ export default function ReviewStep({
               {selectedTarget?.name || selectedTarget?.text || `${selectedTarget?.type} #${selectedTarget?.id}`}
             </div>
           </div>
+          {selectedTarget?.type === 'message' && selectedTarget?.author && (
+            <div className="review-row">
+              <div className="review-key">Reported User</div>
+              <div className="review-val red" id="rvReportedUser">@{selectedTarget.author}</div>
+            </div>
+          )}
           <div className="review-row">
             <div className="review-key">Violation Reason</div>
-            <div className="review-val red" id="rvReason">🚫 {selectedReason}</div>
+            <div className="review-val red" id="rvReason">⚠️ {selectedReason}</div>
           </div>
           <div className="review-row">
             <div className="review-key">Additional Context</div>
@@ -47,7 +49,7 @@ export default function ReviewStep({
           </div>
           <div className="review-row">
             <div className="review-key">Anonymous</div>
-            <div className="review-val green">✓ Yes — your identity is protected</div>
+            <div className="review-val green">🛡️ Yes - your identity is protected</div>
           </div>
         </div>
         <div className="confirm-row">
@@ -63,7 +65,7 @@ export default function ReviewStep({
         </div>
         <div className="btn-row">
           <button className="btn-back" onClick={() => setStep(2)}>
-            ← Back
+            Back
           </button>
           <button
             className="btn-next"
@@ -71,7 +73,7 @@ export default function ReviewStep({
             id="submitBtn"
             onClick={submitReport}
           >
-            {submitting ? 'Submitting…' : '🚩 Submit Report'}
+            {submitting ? 'Submitting...' : '🚩 Submit Report'}
           </button>
         </div>
       </div>

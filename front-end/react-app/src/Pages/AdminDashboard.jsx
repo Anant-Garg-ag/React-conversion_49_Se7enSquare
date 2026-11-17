@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../store/slices/authSlice';
+import { selectAdminStats } from '../store/selectors/adminSelectors';
 import AppShell from '../Components/platform/layout/AppShell';
-import Toast from '../Components/platform/common/Toast';
 import useToast from '../Components/platform/hooks/useToast';
 import useAdminUsers from './AdminDashboard/hooks/useAdminUsers';
 import useAdminCommunities from './AdminDashboard/hooks/useAdminCommunities';
 import useAdminModeration from './AdminDashboard/hooks/useAdminModeration';
+import useAuditLog from './AdminDashboard/hooks/useAuditLog';
 import { PAGES } from '../Components/platform/data/adminData';
 import AdminHeader from './AdminDashboard/components/AdminHeader';
 import AdminNav from './AdminDashboard/components/AdminNav';
@@ -16,37 +19,33 @@ import EscalatedReportsTab from './AdminDashboard/components/EscalatedReportsTab
 import EventsTab from './AdminDashboard/components/EventsTab';
 import AppealsTab from './AdminDashboard/components/AppealsTab';
 import ApplicationsTab from './AdminDashboard/components/ApplicationsTab';
-import { apiRequest, getStoredUser } from '../services/api';
+import AuditLogTab from './AdminDashboard/components/AuditLogTab';
 import '../styles/global.css';
 import '../styles/sidebar.css';
 import '../styles/admin-dashboard.css';
 
-function getAdminUser() {
-  try {
-    const raw = getStoredUser() || {};
-    return {
-      id: raw.id,
-      role: raw.role || 'admin',
-      firstName: raw.firstName || raw.name?.split(' ')[0] || 'Admin',
-      username: raw.username || 'admin',
-    };
-  } catch {
-    return { id: undefined, role: 'admin', firstName: 'Admin', username: 'admin' };
-  }
+function toAdminUser(raw) {
+  const u = raw || {};
+  return {
+    id: u.id,
+    role: u.role || 'admin',
+    firstName: u.firstName || u.name?.split(' ')[0] || 'Admin',
+    username: u.username || 'admin',
+  };
 }
 
 /**
  * Admin Dashboard Page Component
  * Orchestrates sub-hooks and subcomponents for platform administration:
- * Overview, Users, Communities, Escalated Reports, Events, Appeals, and Applications.
+ * Overview, Users, Communities, Escalated Reports, Events, Appeals, Applications, and Audit Log.
+ * All admin data lives in the Redux store (adminUsers, adminCommunities, adminModeration, auditLog).
  */
 export default function AdminDashboard() {
-  const adminUser = getAdminUser();
+  const adminUser = toAdminUser(useSelector(selectCurrentUser));
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const [activePage, setActivePage] = useState(tabParam || 'overview');
   const [globalSearch, setGlobalSearch] = useState('');
-  const [totalMessages, setTotalMessages] = useState(0);
 
   useEffect(() => {
     const currentTab = searchParams.get('tab');
@@ -60,13 +59,13 @@ export default function AdminDashboard() {
     setSearchParams({ tab: pageId });
   }, [setSearchParams]);
 
-  const { toast, showToast } = useToast();
+  const { showToast } = useToast();
   const notify = useCallback((msg) => showToast('ℹ️', msg), [showToast]);
+
+  const { auditLog } = useAuditLog();
 
   const {
     users,
-    setUsers,
-    refreshUsers,
     userSearch,
     setUserSearch,
     userRoleFilter,
@@ -82,52 +81,24 @@ export default function AdminDashboard() {
 
   const {
     communities,
-    setCommunities,
-    refreshCommunities,
     suspendCommunity,
     reinstateCommunity,
   } = useAdminCommunities(notify);
 
   const {
     reports,
-    setReports,
-    refreshReports,
     events,
-    setEvents,
     appeals,
-    setAppeals,
     organizerApps,
     moderatorApps,
     handleModerationAction,
     handleAppeal,
     handleOrganizerApp,
     handleModeratorApp,
-  } = useAdminModeration(notify, refreshUsers);
+  } = useAdminModeration(notify);
 
-  // Load backend stats once on mount
-  useEffect(() => {
-    let isMounted = true;
-    async function loadStats() {
-      try {
-        const s = await apiRequest('/dashboard/stats');
-        if (isMounted && s?.totalMessages !== undefined) {
-          setTotalMessages(s.totalMessages);
-        }
-      } catch { /* keep defaults */ }
-    }
-    loadStats();
-    return () => { isMounted = false; };
-  }, []);
-
-  // Compute live stats strictly from active sub-hook collections without circular render loops
-  const stats = useMemo(() => ({
-    users: users.length,
-    comms: communities.length,
-    escalatedReports: reports.filter((r) => r.status === 'escalated').length,
-    events: events.filter((e) => e.status === 'approved').length,
-    appeals: appeals.filter((a) => a.status === 'pending').length,
-    messages: totalMessages,
-  }), [users, communities, reports, events, appeals, totalMessages]);
+  // Overview counts come from a memoized selector across the admin slices
+  const stats = useSelector(selectAdminStats);
 
   const currentPage = PAGES.find((p) => p.id === activePage) || PAGES[0];
 
@@ -148,7 +119,7 @@ export default function AdminDashboard() {
         {activePage === 'overview' && (
           <OverviewTab
             stats={stats}
-            openReportsCount={stats.escalatedReports}
+            auditLog={auditLog}
             onNavigate={handleSelectPage}
           />
         )}
@@ -202,9 +173,9 @@ export default function AdminDashboard() {
             onModeratorApp={handleModeratorApp}
           />
         )}
-      </div>
 
-      <Toast toast={toast} />
+        {activePage === 'audit' && <AuditLogTab auditLog={auditLog} />}
+      </div>
     </AppShell>
   );
 }

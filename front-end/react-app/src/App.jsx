@@ -1,10 +1,14 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from './store/slices/authSlice';
 
 // Pages
 import Index from './Pages/Index';
 import Landing from './Pages/Landing';
 import Login from './Pages/Login';
+import Terms from './Pages/Terms';
+import Privacy from './Pages/Privacy';
 import Pricing from './Pages/Pricing';
 import Dashboard from './Pages/Dashboard';
 import Chat from './Pages/Chat';
@@ -23,12 +27,13 @@ import OrganizerDashboard from './Pages/OrganizerDashboard/OrganizerDashboard';
 import OwnerDashboard from './Pages/OwnerDashboard';
 import ProfileSettings from './Pages/ProfileSettings';
 import User from './Pages/User';
-import { authService } from './services/authService';
 import { getHomeRoute } from './services/roleAccess';
+import GlobalToast from './Components/platform/common/GlobalToast';
 
-// Protected Route wrapper with role-based access control
+// Protected Route wrapper with role-based access control.
+// Reads the user from the Redux store, so logging in or out re-renders it.
 function ProtectedRoute({ children, allowedRoles, allowOwner = false }) {
-  const user = authService.getCurrentUser();
+  const user = useSelector(selectCurrentUser);
 
   if (!user || !user.username || user.id === undefined || user.id === null) {
     return <Navigate to="/login" replace />;
@@ -57,6 +62,7 @@ function ProtectedRoute({ children, allowedRoles, allowOwner = false }) {
 
 export default function App() {
   return (
+    <>
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<Index />} />
@@ -64,6 +70,10 @@ export default function App() {
       <Route path="/landing.html" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/login.html" element={<Login />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/terms.html" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/privacy.html" element={<Privacy />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/pricing.html" element={<Pricing />} />
 
@@ -145,5 +155,9 @@ export default function App() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+
+    {/* One toast for every page, driven by the Redux ui slice */}
+    <GlobalToast />
+    </>
   );
 }

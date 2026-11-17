@@ -958,6 +958,15 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "includeSuspended",
+            "required": false,
+            "in": "query",
+            "description": "Include events belonging to suspended communities",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -1689,6 +1698,42 @@
         ]
       }
     },
+    "/api/dashboard/landing-stats": {
+      "get": {
+        "operationId": "DashboardController_getLandingStats",
+        "summary": "Get public landing page stats",
+        "parameters": [
+          {
+            "name": "x-role",
+            "in": "header",
+            "description": "Role for RBAC: admin | moderator | user",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "totalUsers": 7,
+                    "totalCommunities": 3,
+                    "totalMessages": 4
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
     "/api/dashboard/stats": {
       "get": {
         "operationId": "DashboardController_getStats",
@@ -2157,6 +2202,75 @@
         },
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "appeals"
+        ]
+      }
+    },
+    "/api/appeals/{id}/approved": {
+      "post": {
+        "operationId": "AppealsController_approveAppealPost",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "appeals"
+        ]
+      }
+    },
+    "/api/appeals/{id}/rejected": {
+      "post": {
+        "operationId": "AppealsController_rejectAppealPost",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "appeals"
+        ]
+      }
+    },
+    "/api/appeals/{id}/{status}": {
+      "post": {
+        "operationId": "AppealsController_reviewAppealPost",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
             "description": ""
           }
         },
@@ -3837,13 +3951,17 @@
           },
           "channels": {
             "example": [
-              "general",
-              "fps-chat"
+              {
+                "id": "general",
+                "name": "general",
+                "type": "Text",
+                "topic": "General discussion"
+              }
             ],
-            "description": "Channels created in the community wizard",
+            "description": "Channels created in the community wizard or settings",
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "object"
             }
           },
           "banner": {
@@ -3934,13 +4052,17 @@
           },
           "channels": {
             "example": [
-              "general",
-              "fps-chat"
+              {
+                "id": "general",
+                "name": "general",
+                "type": "Text",
+                "topic": "General discussion"
+              }
             ],
-            "description": "Channels created in the community wizard",
+            "description": "Channels created in the community wizard or settings",
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "object"
             }
           },
           "banner": {
