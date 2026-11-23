@@ -215,7 +215,43 @@ powershell -NoProfile -Command "Invoke-RestMethod -Uri 'http://localhost:3000/ap
 
 ---
 
-## 2. Key Technical Contributions & Engineering Highlights
+### Redux Toolkit Architecture (Branch: `karmanya/redux-improvements`)
+
+The following Redux improvements were authored by Karmanya on the `karmanya/redux-improvements` branch as a contribution to the team's centralized state management layer:
+
+#### Commit 1 — `communitiesSlice.js` Optimization
+**File:** `front-end/react-app/src/store/slices/communitiesSlice.js`
+
+| Improvement | Description |
+| :--- | :--- |
+| **`membershipMap`** | Stores `{ communityId → membershipId }` from `fetchMyMemberships`. `leaveCommunity` now reads directly from the map and fires a single `DELETE`, eliminating the redundant `GET /memberships` round-trip that existed on every Leave click. |
+| **True dual-layer optimistic updates** | `joinCommunity.pending` and `leaveCommunity.pending` now update BOTH `joinedIds` AND `memberCount`/`onlineCount` on community cards and banners simultaneously. The new `adjustMemberCount()` helper mutates both `state.all` and `state.current.community`. Automatic rollback in `.rejected` keeps UI consistent on failure. |
+| **SWR caching (`LIST_CACHE_MS = 60s`)** | `fetchCommunityList` gains a `condition` guard that skips the network call when the list was last fetched within 60 seconds. Prevents loading skeleton flashes on every revisit to `/discovery`. |
+| **Persistent discovery filters** | `search`, `category`, and `sortBy` lifted from local `useState` into `communitiesSlice.discoveryFilter` with actions `searchChanged`, `categoryChanged`, `sortByChanged`, `filterReset`. User filters now survive navigating into a community and returning to `/discovery`. |
+
+#### Commit 2 — `communitySelectors.js` (Reselect Memoization)
+**File:** `front-end/react-app/src/store/selectors/communitySelectors.js` *(new file)*
+
+A dedicated selector module for Component 2, parallel to `adminSelectors.js` for Component 5:
+
+| Selector | Returns |
+| :--- | :--- |
+| `selectFilteredCommunities` | Memoized filter+sort pipeline consuming `discoveryFilter`; replaces inline `useMemo` in `useDiscovery`. |
+| `selectDiscoveryStats` | `{ totalCommunities, totalMembers, totalOnline }` in one cached pass. |
+| `selectDiscoveryCategories` | Unique sorted category pill list derived from live community data. |
+| `selectIsCommunityJoined(id)` | Factory selector returning a boolean for a specific community's join status. |
+| `selectCommunityById(id)` | Looks up any community (including suspended) by ID for event pages and admin panels. |
+| `selectOwnedCommunitiesCount` | Count of communities owned by the logged-in user for dashboard badges. |
+
+#### Commit 3 — App-Wide Redux Infrastructure
+**Files:** `front-end/react-app/src/store/hooks.js` *(new)*, `front-end/react-app/src/store/listenerMiddleware.js` *(extended)*
+
+| Addition | Description |
+| :--- | :--- |
+| **`store/hooks.js`** | `useAppDispatch` and `useAppSelector` wrappers providing a single import path; store changes only require updating one file instead of every hook across all 5 tracks. |
+| **Global `isRejected` listener** | Catches every rejected `createAsyncThunk` action across all 17 slices and fires a toast automatically — the safety net for unhandled API failures across the whole app. A `SILENT_THUNKS` exclusion set prevents duplicate toasts for thunks that have dedicated inline error handling. |
+
+
 
 1. **Eliminated All Dummy Data:**
    - Removed all static member placeholders across Discovery, Community Page, and Owner Dashboard.
