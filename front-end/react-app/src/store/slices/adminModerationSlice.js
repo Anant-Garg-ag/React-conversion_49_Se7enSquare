@@ -39,7 +39,11 @@ export const fetchApplications = createAsyncThunk('adminModeration/fetchApplicat
   ]);
   const userMap = new Map(asArray(usersRes).map((u) => [u.id, u]));
   const nameOf = (userId) => userMap.get(userId)?.username || `User #${userId}`;
-  const dateOf = (d) => (d ? new Date(d).toLocaleDateString() : 'Recently');
+  const dateOf = (d) => {
+    if (!d) return 'Recently';
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? 'Recently' : parsed.toLocaleDateString();
+  };
 
   return {
     organizerApps: asArray(orgRes).map((o) => ({

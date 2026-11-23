@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectCurrentUser, logout } from '../store/slices/authSlice';
@@ -108,6 +108,12 @@ export default function SideBar() {
   const sessionUser = useSelector(selectCurrentUser);
   const user = useMemo(() => toSidebarUser(sessionUser), [sessionUser]);
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname, location.search]);
+
   const toggleCollapse = () => dispatch(sidebarToggled());
 
   const role = user.role;
@@ -124,11 +130,30 @@ export default function SideBar() {
   };
 
   return (
-    <aside
-      className={`nexus-sidebar${collapsed ? ' collapsed' : ''}`}
-      id="nexusSidebar"
-      aria-label="Main navigation"
-    >
+    <>
+      {/* Mobile Hamburger Button */}
+      <button
+        type="button"
+        className="sb-mobile-open"
+        onClick={() => setMobileOpen((o) => !o)}
+        aria-label="Toggle navigation menu"
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+
+      {/* Mobile Backdrop */}
+      <div
+        className={`sb-backdrop${mobileOpen ? ' visible' : ''}`}
+        onClick={() => setMobileOpen(false)}
+      />
+
+      <aside
+        className={`nexus-sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`}
+        id="nexusSidebar"
+        aria-label="Main navigation"
+      >
       {/* Brand Header */}
       <div className="sb-brand">
         <Link
@@ -271,5 +296,6 @@ export default function SideBar() {
         )}
       </div>
     </aside>
+    </>
   );
 }

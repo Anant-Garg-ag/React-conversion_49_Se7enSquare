@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   BadRequestException,
   Controller,
@@ -34,7 +36,13 @@ export class UploadController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: (req, file, cb) => cb(null, './uploads'),
+        destination: (req, file, cb) => {
+          const dir = join(process.cwd(), 'uploads');
+          if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+          }
+          cb(null, dir);
+        },
         filename: UploadService.generateFilename,
       }),
       fileFilter: UploadService.fileFilter,

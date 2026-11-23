@@ -67,14 +67,22 @@ export default function Events() {
 
   const handleCancel = async (regOrEv) => {
     if (!window.confirm(`Cancel registration for "${regOrEv.title || regOrEv.eventTitle || 'this event'}"?`)) return;
-    await cancelRegistration(regOrEv);
-    showToast('Registration cancelled.');
+    try {
+      await cancelRegistration(regOrEv);
+      showToast('Registration cancelled.');
+    } catch (err) {
+      showToast(`⚠️ ${err?.message || 'Could not cancel registration.'}`);
+    }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this event?')) return;
-    await deleteEvent(id);
-    showToast('Event deleted.');
+    try {
+      await deleteEvent(id);
+      showToast('Event deleted.');
+    } catch (err) {
+      showToast(`⚠️ ${err?.message || 'Could not delete event.'}`);
+    }
   };
 
   return (

@@ -62,7 +62,7 @@ export default function EventRegistrants() {
           <div className="page active">
             <div style={{ padding: '80px 20px', textAlign: 'center' }}>
               <EmptyState
-                icon="⚠️"
+                illustration="/assets/gaming/controller-empty.svg"
                 title="No tournament specified"
                 subtitle="Please select a tournament from the Organizer Dashboard to view its registrants."
                 actionText="← Back to Organizer Dashboard"

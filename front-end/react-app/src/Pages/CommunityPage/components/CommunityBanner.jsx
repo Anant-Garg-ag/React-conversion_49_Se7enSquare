@@ -7,16 +7,26 @@ import { memberCountOf, onlineCountOf } from '../../../Components/platform/hooks
  * (Join/Leave, Settings, Delete for owners).
  */
 export default function CommunityBanner({ community, joined, isOwner, foundedLabel, onToggleJoin, onDelete }) {
-  // Show the community's own banner when it has one: a CSS gradient (from the
-  // Create wizard) is used as-is, an uploaded image URL is wrapped in url().
-  // No banner -> no inline style, so the default .comm-banner background stays.
-  const bannerStyle = community.banner
-    ? {
-        backgroundImage: community.banner.includes('gradient(') ? community.banner : `url(${community.banner})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }
-    : undefined;
+  const getFallbackBanner = (c) => {
+    const text = `${c.category || ''} ${c.name || ''} ${(c.tags || []).join(' ')}`.toLowerCase();
+    if (text.includes('fps') || text.includes('shooter') || text.includes('arena') || text.includes('combat')) {
+      return '/assets/gaming/fps-banner.svg';
+    }
+    if (text.includes('tourn') || text.includes('esport') || text.includes('champ') || text.includes('cup')) {
+      return '/assets/gaming/tournament-banner.svg';
+    }
+    if (text.includes('indie') || text.includes('dev') || text.includes('arcade') || text.includes('retro')) {
+      return '/assets/gaming/indie-banner.svg';
+    }
+    return '/assets/gaming/tournament-banner.svg';
+  };
+
+  const bannerUrl = community.banner || getFallbackBanner(community);
+  const bannerStyle = {
+    backgroundImage: bannerUrl.includes('gradient(') ? bannerUrl : `url(${bannerUrl})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  };
 
   return (
     <div className="comm-banner-area">

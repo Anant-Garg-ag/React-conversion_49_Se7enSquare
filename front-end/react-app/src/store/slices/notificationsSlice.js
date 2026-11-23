@@ -70,15 +70,22 @@ const iconOf = (type) => (type === 'reaction' ? '💬' : type === 'report_status
 
 // The 6 newest, shaped for the Dashboard list
 export const selectRecentNotifications = createSelector([selectNotifications], (items) =>
-  items.slice(0, 6).map((n) => ({
-    id: n.id,
-    icon: iconOf(n.type),
-    text: n.text,
-    time: n.createdAt
-      ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : 'Recently',
-    read: n.read,
-  }))
+  items.slice(0, 6).map((n) => {
+    let formattedTime = 'Recently';
+    if (n.createdAt) {
+      const d = new Date(n.createdAt);
+      if (!isNaN(d.getTime())) {
+        formattedTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+    return {
+      id: n.id,
+      icon: iconOf(n.type),
+      text: n.text,
+      time: formattedTime,
+      read: n.read,
+    };
+  })
 );
 
 export const selectUnreadCount = createSelector(

@@ -79,6 +79,15 @@ export default function useCommunitySettings() {
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      showToast('⚠️ Please upload a valid image file (PNG, JPG, GIF, or WEBP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('⚠️ Image must be smaller than 5MB');
+      return;
+    }
     try {
       await dispatch(uploadBanner(file)).unwrap();
       showToast('📷 Banner updated! Save to persist.');

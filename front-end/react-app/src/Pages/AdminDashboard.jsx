@@ -48,8 +48,8 @@ export default function AdminDashboard() {
   const [globalSearch, setGlobalSearch] = useState('');
 
   useEffect(() => {
-    const currentTab = searchParams.get('tab');
-    if (currentTab && currentTab !== activePage) {
+    const currentTab = searchParams.get('tab') || 'overview';
+    if (currentTab !== activePage) {
       setActivePage(currentTab);
     }
   }, [searchParams, activePage]);

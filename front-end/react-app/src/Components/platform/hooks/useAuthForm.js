@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { authService } from '../../../services/authService';
@@ -29,7 +29,7 @@ export default function useAuthForm() {
   const [cardShake, setCardShake] = useState(false);
 
   // ── 2. Toast (app-wide Redux toast) ──
-  const showToast = (icon, msg) => dispatch(toastShown({ icon, msg, duration: 3500 }));
+  const showToast = useCallback((icon, msg) => dispatch(toastShown({ icon, msg, duration: 3500 })), [dispatch]);
 
   const triggerShake = () => {
     setCardShake(true);
@@ -67,7 +67,7 @@ export default function useAuthForm() {
         showToast('ℹ️', msg);
       }
     }
-  }, []);
+  }, [showToast]);
 
   const validateLogin = () => {
     const errors = {};
