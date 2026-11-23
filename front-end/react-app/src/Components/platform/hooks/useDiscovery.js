@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toastShown } from '../../../store/slices/uiSlice';
 import { selectCurrentUser } from '../../../store/slices/authSlice';
@@ -16,40 +16,51 @@ import {
   selectJoinedIds,
   selectDiscoveryFilter,
 } from '../../../store/slices/communitiesSlice';
+import {
+  selectFilteredCommunities,
+  selectDiscoveryStats,
+  selectDiscoveryCategories,
+} from '../../../store/selectors/communitySelectors';
 import { fetchEvents, selectEvents, selectEventsLoaded } from '../../../store/slices/eventsSlice';
-import { memberCountOf, onlineCountOf } from '../data/discoveryData';
 
 /**
  * Manages community listings, search/category filters, sorting, and
  * join/leave toggling for the Discovery page.
  *
- * Improvement (Karmanya): search, category and sortBy are now stored in the
- * Redux communitiesSlice (discoveryFilter) so the user's chosen filters
- * survive navigation between Discovery and the Community Details page.
- * The page-local showSort toggle remains local state (it is purely transient).
+ * Improvement (Karmanya): filtering, sorting and stat aggregation are now
+ * handled by memoized Reselect selectors in communitySelectors.js rather
+ * than inline useMemo calls, so the computed values are shared and cached
+ * across all components that subscribe to them.
+ *
+ * search, category and sortBy live in Redux (discoveryFilter) so the user's
+ * chosen filters survive navigating into a community and returning to /discovery.
  */
 export default function useDiscovery() {
   const dispatch = useDispatch();
-  const user = useSelector(selectCurrentUser);
+  const user       = useSelector(selectCurrentUser);
   const communities = useSelector(selectCommunityList);
-  const loading = useSelector(selectCommunityListLoading);
+  const loading    = useSelector(selectCommunityListLoading);
   const loadWarning = useSelector(selectCommunityListError);
-  const joinedIdList = useSelector(selectJoinedIds);
-  const joinedIds = useMemo(() => new Set(joinedIdList), [joinedIdList]);
+  const joinedIds  = useSelector(selectJoinedIds);
 
-  // Filter state now lives in Redux so it persists across route changes
+  // Persistent filter state lives in Redux
   const { search, category: activeCategory, sortBy } = useSelector(selectDiscoveryFilter);
-  const setSearch = (val) => dispatch(searchChanged(val));
+  const setSearch       = (val) => dispatch(searchChanged(val));
   const setActiveCategory = (val) => dispatch(categoryChanged(val));
-  const setSortBy = (val) => dispatch(sortByChanged(val));
+  const setSortBy       = (val) => dispatch(sortByChanged(val));
 
-  // showSort is purely transient UI state (dropdown open/closed), stays local
+  // Purely transient: whether the sort dropdown is open (doesn't need to survive navigation)
   const [showSort, setShowSort] = useState(false);
 
-  // Event count for the stats bar comes from the shared events slice (null until loaded)
-  const events = useSelector(selectEvents);
+  // Memoized derived state from Reselect selectors
+  const filtered   = useSelector(selectFilteredCommunities);
+  const { totalMembers, totalOnline } = useSelector(selectDiscoveryStats);
+  const categories = useSelector(selectDiscoveryCategories);
+
+  // Event count for the stats bar
+  const events      = useSelector(selectEvents);
   const eventsLoaded = useSelector(selectEventsLoaded);
-  const eventCount = eventsLoaded ? events.length : null;
+  const eventCount  = eventsLoaded ? events.length : null;
 
   const showToast = (msg) => dispatch(toastShown({ msg }));
 
@@ -59,44 +70,7 @@ export default function useDiscovery() {
     dispatch(fetchEvents());
   }, [dispatch]);
 
-  const categories = useMemo(() => {
-    const cats = [];
-    communities.forEach(c => {
-      if (c.category && !cats.includes(c.category)) cats.push(c.category);
-    });
-    return ['All', ...cats];
-  }, [communities]);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    const cat = activeCategory.toLowerCase();
-    return communities
-      .filter(c => {
-        const matchSearch = !q ||
-          c.name?.toLowerCase().includes(q) ||
-          c.description?.toLowerCase().includes(q);
-        const matchCat = activeCategory === 'All' ||
-          (c.category || '').toLowerCase() === cat ||
-          (c.tags || []).some(t => String(t).toLowerCase() === cat);
-        return matchSearch && matchCat;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'members') return memberCountOf(b) - memberCountOf(a);
-        if (sortBy === 'trending') {
-          return (onlineCountOf(b) / Math.max(memberCountOf(b), 1)) -
-                 (onlineCountOf(a) / Math.max(memberCountOf(a), 1));
-        }
-        if (sortBy === 'newest') {
-          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return (tb - ta) || ((b.id || 0) - (a.id || 0));
-        }
-        return onlineCountOf(b) - onlineCountOf(a); // most active default
-      });
-  }, [communities, search, activeCategory, sortBy]);
-
-  const totalMembers = communities.reduce((s, c) => s + memberCountOf(c), 0);
-  const totalOnline = communities.reduce((s, c) => s + onlineCountOf(c), 0);
+  const joinedSet = new Set(joinedIds);
 
   const toggleJoin = async (id, e) => {
     e.stopPropagation();
@@ -106,12 +80,12 @@ export default function useDiscovery() {
     }
     const idStr = String(id);
     try {
-      if (joinedIds.has(idStr)) {
+      if (joinedSet.has(idStr)) {
         await dispatch(leaveCommunity(idStr)).unwrap();
         showToast('Left community.');
       } else {
         await dispatch(joinCommunity(idStr)).unwrap();
-        const comm = communities.find(c => String(c.id) === idStr);
+        const comm = communities.find((c) => String(c.id) === idStr);
         showToast(comm ? `Welcome to ${comm.name}! ⚡` : 'Joined community.');
       }
     } catch (err) {
@@ -126,7 +100,7 @@ export default function useDiscovery() {
     activeCategory, setActiveCategory,
     sortBy, setSortBy,
     showSort, setShowSort,
-    joinedIds, toggleJoin,
+    joinedIds: joinedSet, toggleJoin,
     categories, filtered,
     totalMembers, totalOnline, eventCount,
   };
