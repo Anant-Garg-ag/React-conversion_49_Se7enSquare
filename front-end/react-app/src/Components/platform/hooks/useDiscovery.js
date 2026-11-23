@@ -10,6 +10,7 @@ import {
   searchChanged,
   categoryChanged,
   sortByChanged,
+  filterReset,
   selectCommunityList,
   selectCommunityListLoading,
   selectCommunityListError,
@@ -68,6 +69,11 @@ export default function useDiscovery() {
     dispatch(fetchCommunityList());
     dispatch(fetchMyMemberships());
     dispatch(fetchEvents());
+
+    // Clean up filter state when unmounting / navigating away
+    return () => {
+      dispatch(filterReset());
+    };
   }, [dispatch]);
 
   const joinedSet = new Set(joinedIds);
