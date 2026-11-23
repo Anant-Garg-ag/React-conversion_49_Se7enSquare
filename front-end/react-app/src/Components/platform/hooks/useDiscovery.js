@@ -77,26 +77,63 @@ export default function useDiscovery() {
   }, [dispatch]);
 
   const joinedSet = new Set(joinedIds);
+  const [pendingIds, setPendingIds] = useState(new Set());
 
-  const toggleJoin = async (id, e) => {
-    e.stopPropagation();
+  const handleJoin = async (id, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     if (!user || user.id === undefined || user.id === null) {
       showToast('⚠️ Please log in to join communities.');
       return;
     }
     const idStr = String(id);
+    if (pendingIds.has(idStr)) return;
+
+    setPendingIds((prev) => new Set(prev).add(idStr));
     try {
-      if (joinedSet.has(idStr)) {
-        await dispatch(leaveCommunity(idStr)).unwrap();
-        showToast('Left community.');
-      } else {
-        await dispatch(joinCommunity(idStr)).unwrap();
-        const comm = communities.find((c) => String(c.id) === idStr);
-        showToast(comm ? `Welcome to ${comm.name}! ⚡` : 'Joined community.');
-      }
+      await dispatch(joinCommunity(idStr)).unwrap();
+      const comm = communities.find((c) => String(c.id) === idStr);
+      showToast(comm ? `Welcome to ${comm.name}! ⚡` : 'Joined community.');
     } catch (err) {
-      // The slice has already undone the optimistic change
       showToast(`⚠️ ${err.message}`);
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(idStr);
+        return next;
+      });
+    }
+  };
+
+  const handleLeave = async (id, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (!user || user.id === undefined || user.id === null) {
+      showToast('⚠️ Please log in to manage community membership.');
+      return;
+    }
+    const idStr = String(id);
+    if (pendingIds.has(idStr)) return;
+
+    setPendingIds((prev) => new Set(prev).add(idStr));
+    try {
+      await dispatch(leaveCommunity(idStr)).unwrap();
+      showToast('Left community.');
+    } catch (err) {
+      showToast(`⚠️ ${err.message}`);
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(idStr);
+        return next;
+      });
+    }
+  };
+
+  const toggleJoin = (id, e) => {
+    const idStr = String(id);
+    if (joinedSet.has(idStr)) {
+      return handleLeave(id, e);
+    } else {
+      return handleJoin(id, e);
     }
   };
 
@@ -106,7 +143,11 @@ export default function useDiscovery() {
     activeCategory, setActiveCategory,
     sortBy, setSortBy,
     showSort, setShowSort,
-    joinedIds: joinedSet, toggleJoin,
+    joinedIds: joinedSet,
+    pendingIds,
+    onJoin: handleJoin,
+    onLeave: handleLeave,
+    toggleJoin,
     categories, filtered,
     totalMembers, totalOnline, eventCount,
   };

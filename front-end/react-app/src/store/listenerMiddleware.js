@@ -82,6 +82,8 @@ const SILENT_THUNKS = new Set([
   'communities/leave',
   'auth/loginUser',
   'auth/registerUser',
+  'events/register',
+  'events/cancelRegistration',
 ]);
 
 listenerMiddleware.startListening({
