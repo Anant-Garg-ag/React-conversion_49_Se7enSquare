@@ -215,41 +215,29 @@ powershell -NoProfile -Command "Invoke-RestMethod -Uri 'http://localhost:3000/ap
 
 ---
 
-### Redux Toolkit Architecture (Branch: `karmanya/redux-improvements`)
+### Redux Toolkit Architecture & Class Requirements Alignment (Branch: `karmanya/redux-improvements`)
 
-The following Redux improvements were authored by Karmanya on the `karmanya/redux-improvements` branch as a contribution to the team's centralized state management layer:
+The Redux architecture for **Component 2 (Community Management)** was engineered to satisfy 100% of the project evaluation requirements:
 
-#### Commit 1 — `communitiesSlice.js` Optimization
-**File:** `front-end/react-app/src/store/slices/communitiesSlice.js`
+| Class Requirement | Implementation in Component 2 | Satisfied In |
+| :--- | :--- | :--- |
+| **1. One-to-One Repository Mapping** | `communitiesSlice.js` maps 1:1 to the backend `communities` repository (`communities.controller.ts` / `communities.service.ts`). | `communitiesSlice.js` |
+| **2. Formula: CRUD Ops = Repos * 4** | All 4 CRUD operations implemented: **Create** (`createCommunity`), **Read** (`fetchCommunityList`, `fetchCommunityPage`), **Update** (`updateCommunity`), **Delete** (`deleteCommunity`). | `communitiesSlice.js` |
+| **3. Strict Thunk Pattern (DB-First -> Fulfilled Only)** | Dispatches async thunks to the NestJS backend first; state is updated **strictly in `.fulfilled`** after database write confirmation. In `.pending`, only in-flight loading indicators are set. Zero optimistic mutations before DB response. | `communitiesSlice.js` |
+| **4. No Local Storage (Pure In-Memory Variables)** | **Zero localStorage usage** for domain state. `joinedIds`, `membershipMap`, and forms are maintained purely in Redux store variables, initialized in memory and hydrated via backend thunks (`fetchMyMemberships`). | `communitiesSlice.js`, `listenerMiddleware.js` |
+| **5. All Display Data & Actions from Redux (No useState)** | **Eliminated all 13 `useState` hooks** from `useCreateCommunity.js`. All form fields (`name`, `slug`, `desc`, `category`, `banner`, `channels`, etc.) and the **Live Preview** card read and dispatch directly from/to `state.communities.createForm`. `CommunityPage` active tab and search also driven by Redux. | `useCreateCommunity.js`, `useCommunityPage.js` |
+| **6. State Clearing on Component Navigation** | Transient view and draft form states are wiped on route unmount via cleanup reducers: `clearCurrentCommunity()`, `resetCreateForm()`, and `filterReset()`, preventing ghost data or dirty forms when moving between components. | `useCommunityPage.js`, `useCreateCommunity.js`, `useDiscovery.js` |
+| **7. Reselect Memoization** | `communitySelectors.js` provides 6 memoized selectors (`selectFilteredCommunities`, `selectDiscoveryStats`, `selectDiscoveryCategories`, etc.) preventing unnecessary re-renders. | `communitySelectors.js` |
+| **8. App-Wide Safety Net & Pre-bound Hooks** | `store/hooks.js` (`useAppDispatch`, `useAppSelector`) and an `isRejected` global listener in `listenerMiddleware.js` automatically displaying toast alerts on API failure across all slices. | `hooks.js`, `listenerMiddleware.js` |
 
-| Improvement | Description |
-| :--- | :--- |
-| **`membershipMap`** | Stores `{ communityId → membershipId }` from `fetchMyMemberships`. `leaveCommunity` now reads directly from the map and fires a single `DELETE`, eliminating the redundant `GET /memberships` round-trip that existed on every Leave click. |
-| **True dual-layer optimistic updates** | `joinCommunity.pending` and `leaveCommunity.pending` now update BOTH `joinedIds` AND `memberCount`/`onlineCount` on community cards and banners simultaneously. The new `adjustMemberCount()` helper mutates both `state.all` and `state.current.community`. Automatic rollback in `.rejected` keeps UI consistent on failure. |
-| **SWR caching (`LIST_CACHE_MS = 60s`)** | `fetchCommunityList` gains a `condition` guard that skips the network call when the list was last fetched within 60 seconds. Prevents loading skeleton flashes on every revisit to `/discovery`. |
-| **Persistent discovery filters** | `search`, `category`, and `sortBy` lifted from local `useState` into `communitiesSlice.discoveryFilter` with actions `searchChanged`, `categoryChanged`, `sortByChanged`, `filterReset`. User filters now survive navigating into a community and returning to `/discovery`. |
-
-#### Commit 2 — `communitySelectors.js` (Reselect Memoization)
-**File:** `front-end/react-app/src/store/selectors/communitySelectors.js` *(new file)*
-
-A dedicated selector module for Component 2, parallel to `adminSelectors.js` for Component 5:
-
-| Selector | Returns |
-| :--- | :--- |
-| `selectFilteredCommunities` | Memoized filter+sort pipeline consuming `discoveryFilter`; replaces inline `useMemo` in `useDiscovery`. |
-| `selectDiscoveryStats` | `{ totalCommunities, totalMembers, totalOnline }` in one cached pass. |
-| `selectDiscoveryCategories` | Unique sorted category pill list derived from live community data. |
-| `selectIsCommunityJoined(id)` | Factory selector returning a boolean for a specific community's join status. |
-| `selectCommunityById(id)` | Looks up any community (including suspended) by ID for event pages and admin panels. |
-| `selectOwnedCommunitiesCount` | Count of communities owned by the logged-in user for dashboard badges. |
-
-#### Commit 3 — App-Wide Redux Infrastructure
-**Files:** `front-end/react-app/src/store/hooks.js` *(new)*, `front-end/react-app/src/store/listenerMiddleware.js` *(extended)*
-
-| Addition | Description |
-| :--- | :--- |
-| **`store/hooks.js`** | `useAppDispatch` and `useAppSelector` wrappers providing a single import path; store changes only require updating one file instead of every hook across all 5 tracks. |
-| **Global `isRejected` listener** | Catches every rejected `createAsyncThunk` action across all 17 slices and fires a toast automatically — the safety net for unhandled API failures across the whole app. A `SILENT_THUNKS` exclusion set prevents duplicate toasts for thunks that have dedicated inline error handling. |
+#### Commit Progression Summary on `karmanya/redux-improvements`:
+1. `af31803` — `feat(redux): optimize communitiesSlice with membershipMap, SWR cache and persistent discovery filters`
+2. `1a2e76e` — `feat(redux): add communitySelectors.js with Reselect memoization for Component 2`
+3. `c0674d4` — `feat(redux): add store/hooks.js and global async-thunk error listener`
+4. `3bbabf1` — `docs: document Redux contributions in karmanya_contribution.md`
+5. `5801561` — `feat(redux): purge localStorage, enforce strict DB-first thunk lifecycle and add updateCommunity 4th CRUD operation`
+6. `a22ec60` — `feat(redux): eliminate useState in wizard and view hooks; add component unmount cleanup`
+7. *(Upcoming)* — `docs: update contribution report with comprehensive class requirements mapping`
 
 
 
