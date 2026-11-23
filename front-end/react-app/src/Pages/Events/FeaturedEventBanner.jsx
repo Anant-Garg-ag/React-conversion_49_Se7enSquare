@@ -52,6 +52,10 @@ export default function FeaturedEventBanner({
           src={coverImg}
           alt={event.title}
           className="feat-poster-img"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/assets/gaming/tournament-banner.svg';
+          }}
         />
         <div className="feat-poster-gradient" />
         <div className="feat-badge-cluster">

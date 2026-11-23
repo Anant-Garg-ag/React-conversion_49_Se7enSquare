@@ -18,11 +18,16 @@ export const submitReport = createAsyncThunk('report/submitReport', async (_, { 
   const { report, auth } = getState();
   const { selectedReason, additionalContext, selectedTarget } = report;
 
-  // Backend CreateReportDto: reason 8-200 chars, ids are positive integers
+  // Backend CreateReportDto: reason 8-200 chars, ids are positive integers, targetType in ['post', 'user', 'community']
   const reasonText = (selectedReason + (additionalContext ? `: ${additionalContext}` : '')).slice(0, 195);
+  const targetType = selectedTarget?.type === 'community'
+    ? 'community'
+    : (selectedTarget?.type === 'post' || selectedTarget?.type === 'message')
+      ? 'post'
+      : 'user';
   const reportData = {
     reporterId: Number(auth.user?.id),
-    targetType: selectedTarget?.type === 'post' ? 'post' : 'user',
+    targetType,
     targetId: Number(selectedTarget?.id),
     reason: reasonText.length >= 8 ? reasonText : `${reasonText} - reported by user`,
   };

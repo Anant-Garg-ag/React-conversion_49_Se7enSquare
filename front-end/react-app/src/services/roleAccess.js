@@ -62,7 +62,7 @@ export const ROLE_ROUTE_PERMISSIONS = {
   '/report': ['user', 'moderator', 'community_manager', 'organizer', 'admin'],
   '/appeal': ['*'], // Accessible to all roles including restricted accounts
   '/profile-settings': ['user', 'moderator', 'community_manager', 'organizer', 'admin', 'owner'],
-  '/user': ['user', 'moderator', 'community_manager', 'organizer', 'admin'],
+  '/user': ['admin'],
 
   // Role-specific operational dashboards
   '/admin-dashboard': ['admin'],
@@ -78,22 +78,23 @@ export const ROLE_ROUTE_PERMISSIONS = {
 export function hasRouteAccess(role, pathname) {
   if (!pathname) return false;
   const cleanPath = pathname.split('?')[0].replace(/\.html$/, '');
+  const normRole = (role || 'user').toLowerCase().trim();
 
   // Exact match
   if (ROLE_ROUTE_PERMISSIONS[cleanPath]) {
     const allowed = ROLE_ROUTE_PERMISSIONS[cleanPath];
     if (allowed.includes('*')) return true;
-    return allowed.includes(role);
+    return allowed.includes(normRole);
   }
 
   // Prefix match (for parameterized routes like /community-page/:id)
   for (const [routePattern, allowedRoles] of Object.entries(ROLE_ROUTE_PERMISSIONS)) {
     if (cleanPath.startsWith(routePattern)) {
       if (allowedRoles.includes('*')) return true;
-      return allowedRoles.includes(role);
+      return allowedRoles.includes(normRole);
     }
   }
 
   // Default fallback
-  return role !== 'owner';
+  return normRole !== 'owner';
 }

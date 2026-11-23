@@ -17,15 +17,26 @@ export default function CommunityCard({ comm, isJoined, onToggleJoin }) {
   const grad = comm.grad || 'grad-purple';
   const bannerClass = grad.replace('grad-', 'banner-');
 
-  // Use the community's own banner when it has one (gradient as-is, image URL
-  // in url()). No banner -> no inline style, so the default class colour stays.
-  const bannerStyle = comm.banner
-    ? {
-        backgroundImage: comm.banner.includes('gradient(') ? comm.banner : `url(${comm.banner})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }
-    : undefined;
+  const getFallbackBanner = (c) => {
+    const text = `${c.category || ''} ${c.name || ''} ${(c.tags || []).join(' ')}`.toLowerCase();
+    if (text.includes('fps') || text.includes('shooter') || text.includes('arena') || text.includes('combat')) {
+      return '/assets/gaming/fps-banner.svg';
+    }
+    if (text.includes('tourn') || text.includes('esport') || text.includes('champ') || text.includes('cup')) {
+      return '/assets/gaming/tournament-banner.svg';
+    }
+    if (text.includes('indie') || text.includes('dev') || text.includes('arcade') || text.includes('retro')) {
+      return '/assets/gaming/indie-banner.svg';
+    }
+    return '/assets/gaming/tournament-banner.svg';
+  };
+
+  const bannerUrl = comm.banner || getFallbackBanner(comm);
+  const bannerStyle = {
+    backgroundImage: bannerUrl.includes('gradient(') ? bannerUrl : `url(${bannerUrl})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  };
 
   return (
     <div

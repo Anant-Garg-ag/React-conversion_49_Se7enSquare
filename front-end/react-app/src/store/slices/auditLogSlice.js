@@ -48,16 +48,23 @@ const selectAuditRecords = (state) => state.auditLog.records;
 export const selectAuditEntries = createSelector([selectAuditRecords], (records) =>
   [...records]
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-    .map((l) => ({
-      id: l.id,
-      time: l.createdAt
-        ? new Date(l.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
-        : '—',
-      admin: l.actor || 'system',
-      action: l.action,
-      target: l.target || 'general',
-      reason: l.reason || '',
-    }))
+    .map((l) => {
+      let formattedTime = '—';
+      if (l.createdAt) {
+        const d = new Date(l.createdAt);
+        if (!isNaN(d.getTime())) {
+          formattedTime = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+        }
+      }
+      return {
+        id: l.id,
+        time: formattedTime,
+        admin: l.actor || 'system',
+        action: l.action,
+        target: l.target || 'general',
+        reason: l.reason || '',
+      };
+    })
 );
 
 export default auditLogSlice.reducer;

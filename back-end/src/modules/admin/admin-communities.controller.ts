@@ -11,7 +11,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AppRole } from '../rbac/role.enum';
 import { SanctionsService } from '../sanctions/sanctions.service';
-import { db, saveDb, nextId } from '../../common/utils/in-memory-db';
+import { db, saveDb } from '../../common/utils/in-memory-db';
 import { NotificationsService } from '../notifications/notifications.service';
 import { IsNotEmpty, IsString } from 'class-validator';
 
