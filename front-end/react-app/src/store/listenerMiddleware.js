@@ -2,7 +2,6 @@ import { createListenerMiddleware, isAnyOf, isRejected } from '@reduxjs/toolkit'
 import { storeUserSession, clearUserSession } from '../services/api';
 import { loginSuccess, profileUpdated, logout } from './slices/authSlice';
 import { toastShown, toastHidden, sidebarToggled, SIDEBAR_KEY } from './slices/uiSlice';
-import { JOINED_KEY } from './slices/communitiesSlice';
 
 /**
  * Side effects that run after an action has updated the store.
@@ -18,14 +17,12 @@ import { JOINED_KEY } from './slices/communitiesSlice';
  * 3. Sidebar persistence — writes the collapsed flag to localStorage so it
  *    survives a page reload.
  *
- * 4. JoinedIds persistence — caches joined community IDs so the first paint
- *    is correct before the server responds with memberships.
+ * 4. Zero LocalStorage for Domain Data — all community and membership state
+ *    is maintained strictly in Redux store memory variables.
  *
- * 5. Global async-thunk error handler (NEW) — catches any rejected async
+ * 5. Global async-thunk error handler — catches any rejected async
  *    thunk across ALL 17 slices (communities, events, admin, chat …) and
- *    fires a toast automatically.  Individual hooks can still catch errors with
- *    .unwrap() for custom messages; this listener is the safety net for
- *    unhandled rejections that would otherwise fail silently.
+ *    fires a toast automatically.
  */
 export const listenerMiddleware = createListenerMiddleware();
 
@@ -58,17 +55,6 @@ listenerMiddleware.startListening({
   effect: (_action, listenerApi) => {
     try {
       localStorage.setItem(SIDEBAR_KEY, String(listenerApi.getState().ui.sidebarCollapsed));
-    } catch { /* storage unavailable */ }
-  },
-});
-
-// Runs for any action that changed joinedIds (join, leave, membership fetch, create, delete, logout)
-listenerMiddleware.startListening({
-  predicate: (_action, currentState, previousState) =>
-    currentState.communities.joinedIds !== previousState.communities.joinedIds,
-  effect: (_action, listenerApi) => {
-    try {
-      localStorage.setItem(JOINED_KEY, JSON.stringify(listenerApi.getState().communities.joinedIds));
     } catch { /* storage unavailable */ }
   },
 });
