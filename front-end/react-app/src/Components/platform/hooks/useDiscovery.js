@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toastShown } from '../../../store/slices/uiSlice';
 import { selectCurrentUser } from '../../../store/slices/authSlice';
@@ -7,10 +7,14 @@ import {
   fetchMyMemberships,
   joinCommunity,
   leaveCommunity,
+  searchChanged,
+  categoryChanged,
+  sortByChanged,
   selectCommunityList,
   selectCommunityListLoading,
   selectCommunityListError,
   selectJoinedIds,
+  selectDiscoveryFilter,
 } from '../../../store/slices/communitiesSlice';
 import { fetchEvents, selectEvents, selectEventsLoaded } from '../../../store/slices/eventsSlice';
 import { memberCountOf, onlineCountOf } from '../data/discoveryData';
@@ -18,8 +22,11 @@ import { memberCountOf, onlineCountOf } from '../data/discoveryData';
 /**
  * Manages community listings, search/category filters, sorting, and
  * join/leave toggling for the Discovery page.
- * Communities and joined ids come from the shared Redux communities slice;
- * the search, category and sort controls are page-only UI state.
+ *
+ * Improvement (Karmanya): search, category and sortBy are now stored in the
+ * Redux communitiesSlice (discoveryFilter) so the user's chosen filters
+ * survive navigation between Discovery and the Community Details page.
+ * The page-local showSort toggle remains local state (it is purely transient).
  */
 export default function useDiscovery() {
   const dispatch = useDispatch();
@@ -30,9 +37,13 @@ export default function useDiscovery() {
   const joinedIdList = useSelector(selectJoinedIds);
   const joinedIds = useMemo(() => new Set(joinedIdList), [joinedIdList]);
 
-  const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
-  const [sortBy, setSortBy] = useState('active');
+  // Filter state now lives in Redux so it persists across route changes
+  const { search, category: activeCategory, sortBy } = useSelector(selectDiscoveryFilter);
+  const setSearch = (val) => dispatch(searchChanged(val));
+  const setActiveCategory = (val) => dispatch(categoryChanged(val));
+  const setSortBy = (val) => dispatch(sortByChanged(val));
+
+  // showSort is purely transient UI state (dropdown open/closed), stays local
   const [showSort, setShowSort] = useState(false);
 
   // Event count for the stats bar comes from the shared events slice (null until loaded)

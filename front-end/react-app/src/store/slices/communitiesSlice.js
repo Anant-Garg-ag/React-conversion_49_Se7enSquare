@@ -3,15 +3,28 @@ import { apiRequest } from '../../services/api';
 import { logout } from './authSlice';
 
 /**
- * Communities slice, shared by Discovery, Community Page, Create Community and the event pages:
- * - all: every community (event pages need names even for suspended ones);
- *   selectCommunityList derives the public list with suspended ones hidden
- * - joinedIds: communities the logged-in user belongs to; joining on one page
- *   shows on every other page immediately
- * - current: the community open on the Community Page, with its members and events
+ * Communities slice — shared by Discovery, Community Page, Create Community, and event pages.
+ *
+ * Key improvements over the original implementation (Karmanya):
+ *
+ * 1. membershipMap: normalized { [communityId]: membershipId } lookup so leaveCommunity
+ *    can delete directly without a redundant GET /memberships round-trip.
+ *
+ * 2. True dual-layer optimistic updates: joining/leaving instantly updates BOTH the
+ *    joinedIds array AND the memberCount on the community card/banner, with automatic
+ *    rollback when the API request fails.
+ *
+ * 3. SWR caching guard on fetchCommunityList: skips redundant network calls when the
+ *    list was fetched within the last 60 seconds (configurable via LIST_CACHE_MS).
+ *
+ * 4. discoveryFilter: search, category, and sortBy lifted into Redux so navigation
+ *    between pages preserves the user's filter state.
  */
 
 export const JOINED_KEY = 'nexus_joined_communities';
+
+/** Cache window: community list is considered fresh for 60 seconds. */
+const LIST_CACHE_MS = 60_000;
 
 function readJoinedIds() {
   try {
@@ -22,47 +35,104 @@ function readJoinedIds() {
   }
 }
 
+/** Helper: mutate memberCount on a community in state.all and state.current, clamped to 0. */
+function adjustMemberCount(state, communityId, delta) {
+  const id = String(communityId);
+  const inAll = state.all.find((c) => String(c.id) === id);
+  if (inAll) inAll.memberCount = Math.max(0, (inAll.memberCount || 0) + delta);
+  if (String(state.current.community?.id) === id) {
+    state.current.community.memberCount = Math.max(
+      0,
+      (state.current.community.memberCount || 0) + delta
+    );
+  }
+}
+
 const isActive = (c) => (c.status || 'active').toLowerCase() !== 'suspended';
 
-export const fetchCommunityList = createAsyncThunk('communities/fetchList', async () => {
-  const data = await apiRequest('/communities');
-  return Array.isArray(data) ? data : [];
-});
+// ─── Async Thunks ─────────────────────────────────────────────────────────────
 
-// The server's memberships are the source of truth for joinedIds
+/**
+ * Fetches the community list. Skips the request when the cached list is still
+ * fresh (within LIST_CACHE_MS) unless force=true is passed as the argument.
+ */
+export const fetchCommunityList = createAsyncThunk(
+  'communities/fetchList',
+  async () => {
+    const data = await apiRequest('/communities');
+    return Array.isArray(data) ? data : [];
+  },
+  {
+    condition: (force = false, { getState }) => {
+      if (force) return true;
+      const { all, listLoading, lastFetched } = getState().communities;
+      if (listLoading) return false; // already in-flight, don't double-fetch
+      const isFresh = lastFetched && Date.now() - lastFetched < LIST_CACHE_MS;
+      // Skip if we have data and the cache is still valid
+      return !(all.length > 0 && isFresh);
+    },
+  }
+);
+
+/**
+ * Fetches the logged-in user's memberships from the server.
+ * Returns both the joined community IDs and a normalized membershipMap
+ * ({ communityId -> membershipId }) so leaveCommunity needs zero extra requests.
+ */
 export const fetchMyMemberships = createAsyncThunk(
   'communities/fetchMyMemberships',
   async (_, { getState }) => {
     const userId = getState().auth.user?.id;
     const mems = await apiRequest(`/memberships?userId=${userId}`);
-    return Array.isArray(mems) ? mems.map((m) => String(m.communityId)) : [];
+    if (!Array.isArray(mems)) return { joinedIds: [], membershipMap: {} };
+    const joinedIds = mems.map((m) => String(m.communityId));
+    const membershipMap = Object.fromEntries(
+      mems.map((m) => [String(m.communityId), String(m.id)])
+    );
+    return { joinedIds, membershipMap };
   },
-  // Skip the request when nobody is logged in
   { condition: (_, { getState }) => Boolean(getState().auth.user?.id) }
 );
 
 export const joinCommunity = createAsyncThunk('communities/join', async (communityId, { getState }) => {
   const userId = getState().auth.user?.id;
+  let membershipId = null;
   try {
-    await apiRequest('/memberships', {
+    const res = await apiRequest('/memberships', {
       method: 'POST',
       body: JSON.stringify({ userId: Number(userId), communityId: Number(communityId) }),
     });
+    membershipId = res?.id ? String(res.id) : null;
   } catch (err) {
     // Duplicate joins are harmless: the membership already exists
     if (!/already a member/i.test(err.message)) throw err;
   }
-  return String(communityId);
+  return { communityId: String(communityId), membershipId };
 });
 
+/**
+ * Uses the cached membershipMap for a direct DELETE — no extra GET needed.
+ * Falls back to a GET lookup if the map entry is missing (e.g. after a cold start).
+ */
 export const leaveCommunity = createAsyncThunk('communities/leave', async (communityId, { getState }) => {
   const userId = getState().auth.user?.id;
-  const mems = await apiRequest(`/memberships?userId=${userId}`);
-  const target = Array.isArray(mems)
-    ? mems.find((m) => String(m.communityId) === String(communityId) && String(m.userId) === String(userId))
-    : null;
-  if (target) {
-    await apiRequest(`/memberships/${target.id}`, { method: 'DELETE' });
+  let membershipId = getState().communities.membershipMap[String(communityId)];
+
+  if (!membershipId) {
+    // Fallback: fetch memberships to find the record (should rarely happen)
+    const mems = await apiRequest(`/memberships?userId=${userId}`);
+    const target = Array.isArray(mems)
+      ? mems.find(
+          (m) =>
+            String(m.communityId) === String(communityId) &&
+            String(m.userId) === String(userId)
+        )
+      : null;
+    membershipId = target?.id ? String(target.id) : null;
+  }
+
+  if (membershipId) {
+    await apiRequest(`/memberships/${membershipId}`, { method: 'DELETE' });
   }
   return String(communityId);
 });
@@ -81,7 +151,7 @@ export const fetchCommunityPage = createAsyncThunk('communities/fetchPage', asyn
   }
 });
 
-// Community Page: approved events and the member list, loaded after the community
+// Community Page: approved events and the member list, loaded in parallel with the community
 export const fetchCommunityExtras = createAsyncThunk('communities/fetchExtras', async (community) => {
   const [allEvents, mems, users] = await Promise.all([
     apiRequest('/events').catch(() => []),
@@ -140,26 +210,51 @@ export const addChannel = createAsyncThunk('communities/addChannel', async ({ co
   return { communityName: community.name, channel };
 });
 
+// ─── State ────────────────────────────────────────────────────────────────────
+
 const emptyCurrent = { community: null, loading: true, error: '', members: null, events: [] };
 
 const initialState = {
   all: [],
   listLoading: true,
   listError: '',
+  lastFetched: null,          // SWR: timestamp of the last successful list fetch
   joinedIds: readJoinedIds(),
+  membershipMap: {},          // { [communityId]: membershipId } — avoids re-fetching on leave
   current: emptyCurrent,
+  discoveryFilter: {          // Persists search/category/sort across route changes
+    search: '',
+    category: 'All',
+    sortBy: 'active',
+  },
 };
 
 const addId = (ids, id) => (ids.includes(id) ? ids : [...ids, id]);
 const removeId = (ids, id) => ids.filter((x) => x !== id);
 
+// ─── Slice ────────────────────────────────────────────────────────────────────
+
 const communitiesSlice = createSlice({
   name: 'communities',
   initialState,
-  reducers: {},
+  reducers: {
+    /** Discovery filter actions — keep search/category/sort in Redux so they survive navigation. */
+    searchChanged(state, action) {
+      state.discoveryFilter.search = action.payload;
+    },
+    categoryChanged(state, action) {
+      state.discoveryFilter.category = action.payload;
+    },
+    sortByChanged(state, action) {
+      state.discoveryFilter.sortBy = action.payload;
+    },
+    filterReset(state) {
+      state.discoveryFilter = initialState.discoveryFilter;
+    },
+  },
   extraReducers: (builder) => {
     builder
-      // List
+      // ── Community List ───────────────────────────────────────────────────
       .addCase(fetchCommunityList.pending, (state) => {
         state.listLoading = true;
       })
@@ -167,33 +262,58 @@ const communitiesSlice = createSlice({
         state.listLoading = false;
         state.all = action.payload;
         state.listError = '';
+        state.lastFetched = Date.now(); // stamp for SWR cache check
       })
       .addCase(fetchCommunityList.rejected, (state, action) => {
         state.listLoading = false;
         state.all = [];
         state.listError = action.error.message || 'Could not load communities.';
       })
+
+      // ── Memberships ──────────────────────────────────────────────────────
       .addCase(fetchMyMemberships.fulfilled, (state, action) => {
-        state.joinedIds = action.payload;
+        state.joinedIds = action.payload.joinedIds;
+        state.membershipMap = action.payload.membershipMap;
       })
 
-      // Join / leave: optimistic. pending updates the UI at once, rejected undoes it.
+      // ── Join: optimistic — updates joinedIds AND memberCount immediately. ──
+      // On success: also stores the new membershipId in the map.
+      // On failure: rolls back both joinedIds and memberCount.
       .addCase(joinCommunity.pending, (state, action) => {
-        state.joinedIds = addId(state.joinedIds, String(action.meta.arg));
+        const id = String(action.meta.arg);
+        state.joinedIds = addId(state.joinedIds, id);
+        adjustMemberCount(state, id, +1);
+      })
+      .addCase(joinCommunity.fulfilled, (state, action) => {
+        const { communityId, membershipId } = action.payload;
+        if (membershipId) state.membershipMap[communityId] = membershipId;
       })
       .addCase(joinCommunity.rejected, (state, action) => {
-        state.joinedIds = removeId(state.joinedIds, String(action.meta.arg));
-      })
-      .addCase(leaveCommunity.pending, (state, action) => {
-        state.joinedIds = removeId(state.joinedIds, String(action.meta.arg));
-      })
-      .addCase(leaveCommunity.rejected, (state, action) => {
-        state.joinedIds = addId(state.joinedIds, String(action.meta.arg));
+        const id = String(action.meta.arg);
+        state.joinedIds = removeId(state.joinedIds, id);
+        adjustMemberCount(state, id, -1); // undo the optimistic increment
       })
 
-      // Community Page
+      // ── Leave: optimistic — updates joinedIds AND memberCount immediately. ──
+      // On failure: rolls back both.
+      .addCase(leaveCommunity.pending, (state, action) => {
+        const id = String(action.meta.arg);
+        state.joinedIds = removeId(state.joinedIds, id);
+        adjustMemberCount(state, id, -1);
+      })
+      .addCase(leaveCommunity.fulfilled, (state, action) => {
+        // Clean up the membership map entry now that the record is gone
+        delete state.membershipMap[action.payload];
+      })
+      .addCase(leaveCommunity.rejected, (state, action) => {
+        const id = String(action.meta.arg);
+        state.joinedIds = addId(state.joinedIds, id);
+        adjustMemberCount(state, id, +1); // undo the optimistic decrement
+      })
+
+      // ── Community Page ───────────────────────────────────────────────────
       .addCase(fetchCommunityPage.pending, (state, action) => {
-        // Opening a different community must not show the previous one's data
+        // Opening a different community must not flash the previous one's data
         if (String(state.current.community?.id) !== String(action.meta.arg)) {
           state.current = { ...emptyCurrent };
         } else {
@@ -220,7 +340,7 @@ const communitiesSlice = createSlice({
         state.current.members = [];
       })
 
-      // Create / delete
+      // ── Create / Delete ──────────────────────────────────────────────────
       .addCase(createCommunity.fulfilled, (state, action) => {
         const created = action.payload;
         state.all.push(created);
@@ -229,29 +349,47 @@ const communitiesSlice = createSlice({
       .addCase(deleteCommunity.fulfilled, (state, action) => {
         state.all = state.all.filter((c) => String(c.id) !== action.payload);
         state.joinedIds = removeId(state.joinedIds, action.payload);
+        delete state.membershipMap[action.payload];
       })
 
-      // The next user must not inherit this user's memberships
+      // ── Logout: clear per-user state ─────────────────────────────────────
       .addCase(logout, (state) => {
         state.joinedIds = [];
+        state.membershipMap = {};
         state.current = emptyCurrent;
       });
   },
 });
 
+export const { searchChanged, categoryChanged, sortByChanged, filterReset } =
+  communitiesSlice.actions;
+
+// ─── Selectors ────────────────────────────────────────────────────────────────
+
 export const selectAllCommunities = (state) => state.communities.all;
-// Public list: suspended communities are hidden. Memoized, so the array is only rebuilt when `all` changes.
-export const selectCommunityList = createSelector([selectAllCommunities], (all) => all.filter(isActive));
 export const selectCommunityListLoading = (state) => state.communities.listLoading;
 export const selectCommunityListError = (state) => state.communities.listError;
 export const selectJoinedIds = (state) => state.communities.joinedIds;
+export const selectMembershipMap = (state) => state.communities.membershipMap;
 export const selectCurrentCommunity = (state) => state.communities.current;
+export const selectDiscoveryFilter = (state) => state.communities.discoveryFilter;
 
-// Dashboard: communities the user joined, and the ones they own
-export const selectJoinedCommunities = createSelector([selectAllCommunities, selectJoinedIds], (all, ids) => {
-  const joined = new Set(ids);
-  return all.filter((c) => joined.has(String(c.id)));
-});
+/** Public list: suspended communities are hidden. Memoized — only rebuilt when `all` changes. */
+export const selectCommunityList = createSelector(
+  [selectAllCommunities],
+  (all) => all.filter(isActive)
+);
+
+/** Communities the logged-in user has joined (for Dashboard / sidebar). */
+export const selectJoinedCommunities = createSelector(
+  [selectAllCommunities, selectJoinedIds],
+  (all, ids) => {
+    const joined = new Set(ids);
+    return all.filter((c) => joined.has(String(c.id)));
+  }
+);
+
+/** Communities owned by the logged-in user. */
 export const selectOwnedCommunities = createSelector(
   [selectAllCommunities, (state) => state.auth.user?.id],
   (all, userId) => (userId == null ? [] : all.filter((c) => String(c.ownerId) === String(userId)))
