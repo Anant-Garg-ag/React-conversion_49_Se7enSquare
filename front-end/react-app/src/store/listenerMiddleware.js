@@ -1,6 +1,6 @@
 import { createListenerMiddleware, isAnyOf, isRejected } from '@reduxjs/toolkit';
 import { storeUserSession, clearUserSession } from '../services/api';
-import { loginSuccess, profileUpdated, logout } from './slices/authSlice';
+import { loginSuccess, profileUpdated, logout, loginUser } from './slices/authSlice';
 import { toastShown, toastHidden, sidebarToggled, SIDEBAR_KEY } from './slices/uiSlice';
 
 /**
@@ -21,13 +21,13 @@ import { toastShown, toastHidden, sidebarToggled, SIDEBAR_KEY } from './slices/u
  *    is maintained strictly in Redux store memory variables.
  *
  * 5. Global async-thunk error handler — catches any rejected async
- *    thunk across ALL 17 slices (communities, events, admin, chat …) and
+ *    thunk across ALL slices (communities, events, admin, chat …) and
  *    fires a toast automatically.
  */
 export const listenerMiddleware = createListenerMiddleware();
 
 listenerMiddleware.startListening({
-  matcher: isAnyOf(loginSuccess, profileUpdated),
+  matcher: isAnyOf(loginSuccess, profileUpdated, loginUser.fulfilled),
   effect: (action) => {
     storeUserSession(action.payload);
   },
@@ -80,6 +80,10 @@ const SILENT_THUNKS = new Set([
   'communities/fetchMyMemberships',
   'communities/join',
   'communities/leave',
+  'auth/loginUser',
+  'auth/registerUser',
+  'events/register',
+  'events/cancelRegistration',
 ]);
 
 listenerMiddleware.startListening({
