@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
+import { apiRequest } from '../../services/api';
 import { moderationService } from '../../services/moderationService';
 import { QUEUE_TABS } from '../../Components/platform/data/modPanelData';
 import { logout } from './authSlice';
@@ -65,7 +66,7 @@ export const fetchModReports = createAsyncThunk('modPanel/fetchReports', async (
  */
 export const takeModAction = createAsyncThunk(
   'modPanel/takeAction',
-  async ({ modAction, report, note }, { rejectWithValue }) => {
+  async ({ modAction, report, note }, { dispatch, rejectWithValue }) => {
     const actionText = `${modAction.label}${note ? ` — ${note}` : ''}`;
     let reached = report.status;
     try {
@@ -87,7 +88,8 @@ export const takeModAction = createAsyncThunk(
       await moderationService.updateReportStatus(report.id, 'resolved', actionText);
       return { id: report.id, status: 'resolved', action: actionText };
     } catch (err) {
-      return rejectWithValue({ id: report.id, status: reached, message: err.message });
+      if (reached !== report.status) await dispatch(fetchModReports());
+      return rejectWithValue({ message: err.message });
     }
   },
   {
@@ -107,7 +109,21 @@ export const moveToReview = createAsyncThunk('modPanel/moveToReview', async (rep
   return { id: reportId, status: 'reviewed' };
 });
 
+export const createModReport = createAsyncThunk('modPanel/createReport', async (payload, { dispatch }) => {
+  const report = await apiRequest('/reports', { method: 'POST', body: JSON.stringify(payload) });
+  await dispatch(fetchModReports());
+  return report;
+});
+
+export const deleteModReport = createAsyncThunk('modPanel/deleteReport', async (id) => {
+  await apiRequest(`/reports/${id}`, { method: 'DELETE' });
+  return id;
+});
+
+const initialUi = { activeQTab: 'pending', selectedId: null, queueSearch: '', actionNote: '' };
+
 const initialState = {
+  ui: initialUi,
   reports: [],
   loading: true,
   processing: false,
@@ -124,7 +140,14 @@ function patchReport(state, { id, status, action }) {
 const modPanelSlice = createSlice({
   name: 'modPanel',
   initialState,
-  reducers: {},
+  reducers: {
+    modPanelUiChanged(state, { payload }) {
+      Object.assign(state.ui, payload);
+    },
+    resetModPanelState(state) {
+      state.ui = initialUi;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchModReports.pending, (state) => {
@@ -146,10 +169,8 @@ const modPanelSlice = createSlice({
         state.processing = false;
         patchReport(state, action.payload);
       })
-      .addCase(takeModAction.rejected, (state, action) => {
+      .addCase(takeModAction.rejected, (state) => {
         state.processing = false;
-        // Partial progress: the report may already be "reviewed" on the server
-        if (action.payload) patchReport(state, action.payload);
       })
 
       .addCase(escalateReport.pending, (state) => {
@@ -167,9 +188,14 @@ const modPanelSlice = createSlice({
         patchReport(state, action.payload);
       })
 
+      .addCase(deleteModReport.fulfilled, (state, action) => {
+        state.reports = state.reports.filter(({ id }) => id !== action.payload);
+      })
       .addCase(logout, () => initialState);
   },
 });
+
+export const { modPanelUiChanged, resetModPanelState } = modPanelSlice.actions;
 
 export const selectModReports = (state) => state.modPanel.reports;
 export const selectModReportsLoading = (state) => state.modPanel.loading;
