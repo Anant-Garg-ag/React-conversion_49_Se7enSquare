@@ -4,7 +4,7 @@ import { logout } from './authSlice';
 
 /**
  * Report slice: the 4-step report wizard.
- * Living in the store means a half-filled report survives leaving the page and coming back.
+ * The wizard clears its draft when the report page unmounts.
  */
 
 // GET /users?search= -> first 6 matches

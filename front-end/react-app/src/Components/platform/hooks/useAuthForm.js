@@ -43,7 +43,11 @@ export default function useAuthForm() {
   const reduxRegError = useAppSelector(selectRegError);
 
   // ── 1. Tab & View State ──
-  const { currentTab, cardShake, loginEmail, loginPassword, loginRole, rememberMe, showLoginPassword, loginFieldErrors, regFullName, regEmail, regHandle, regPassword, regConfirm, regRole, regTerms, showRegPassword, showRegConfirm, regFieldErrors, forgotEmail, forgotError, forgotLoading, googleLoading } = useAppSelector((state) => state.auth.form);
+  const {
+    currentTab, cardShake, loginEmail, loginPassword, loginRole, rememberMe, showLoginPassword, loginFieldErrors,
+    regFullName, regEmail, regHandle, regPassword, regConfirm, regRole, regTerms, showRegPassword, showRegConfirm,
+    regFieldErrors, forgotEmail, forgotError, forgotLoading, googleLoading,
+  } = useAppSelector((state) => state.auth.form);
   const setCurrentTab = (value) => dispatch(authFormChanged({ currentTab: value }));
   const setCardShake = (value) => dispatch(authFormChanged({ cardShake: value }));
   const setLoginEmail = (value) => dispatch(authFormChanged({ loginEmail: value }));
@@ -74,10 +78,29 @@ export default function useAuthForm() {
   const setGoogleLoading = (value) => dispatch(authFormChanged({ googleLoading: value }));
 
   const shakeTimeout = useRef(null);
-  useEffect(() => () => {
-    clearTimeout(shakeTimeout.current);
-    dispatch(resetAuthForm());
+  const pageTimers = useRef(new Set());
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    const timers = pageTimers.current;
+    return () => {
+      mounted.current = false;
+      clearTimeout(shakeTimeout.current);
+      timers.forEach(clearTimeout);
+      timers.clear();
+      dispatch(resetAuthForm());
+      dispatch(clearAuthErrors());
+    };
   }, [dispatch]);
+
+  const schedule = (callback, wait) => {
+    if (!mounted.current) return;
+    const timer = setTimeout(() => {
+      pageTimers.current.delete(timer);
+      callback();
+    }, wait);
+    pageTimers.current.add(timer);
+  };
 
   // Tabs: 'login' | 'register' | 'forgot' | 'forgot-success'
 
@@ -85,6 +108,7 @@ export default function useAuthForm() {
   const showToast = useCallback((icon, msg) => dispatch(toastShown({ icon, msg, duration: 3500 })), [dispatch]);
 
   const triggerShake = () => {
+    if (!mounted.current) return;
     setCardShake(true);
     clearTimeout(shakeTimeout.current);
     shakeTimeout.current = setTimeout(() => dispatch(authFormChanged({ cardShake: false })), 450);
@@ -187,7 +211,7 @@ export default function useAuthForm() {
         `Signed in successfully as ${user.username} (${(user.role || loginRole || 'user').toUpperCase()})!`
       );
 
-      setTimeout(() => {
+      schedule(() => {
         navigateByRole(user.role);
       }, 700);
     } catch (err) {
@@ -315,7 +339,7 @@ export default function useAuthForm() {
       })).unwrap();
 
       showToast('🎉', `Account @${createdUser.username} created successfully! Please sign in.`);
-      setTimeout(() => {
+      schedule(() => {
         setCurrentTab('login');
         setLoginEmail(createdUser.username);
         setLoginPassword(regPassword);
@@ -342,7 +366,7 @@ export default function useAuthForm() {
     setForgotError('');
     setForgotLoading(true);
 
-    setTimeout(() => {
+    schedule(() => {
       setForgotLoading(false);
       setCurrentTab('forgot-success');
       showToast('✉️', 'Password reset instructions sent!');
@@ -387,7 +411,7 @@ export default function useAuthForm() {
           `Welcome, ${user.firstName || user.username} (${(user.role || 'user').toUpperCase()})!`
         );
 
-        setTimeout(() => {
+        schedule(() => {
           navigateByRole(user.role);
         }, 700);
       }
@@ -397,7 +421,7 @@ export default function useAuthForm() {
       const failMsg = err.message || 'Google authentication failed';
       showToast('❌', failMsg);
     } finally {
-      setGoogleLoading(false);
+      if (mounted.current) setGoogleLoading(false);
     }
   };
 

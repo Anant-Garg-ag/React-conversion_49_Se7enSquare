@@ -19,7 +19,7 @@ export const fetchSubscriptionStatus = createAsyncThunk(
 export const createSubscription = createAsyncThunk(
   'pricing/createSubscription',
   async ({ userId, plan }) => {
-    const subscription = await apiRequest('/subscriptions/upgrade', {
+    const subscription = await apiRequest('/subscriptions', {
       method: 'POST',
       body: JSON.stringify({ userId: Number(userId), plan }),
     });

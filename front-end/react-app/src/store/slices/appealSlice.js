@@ -45,12 +45,11 @@ export const fetchMyAppeals = createAsyncThunk(
   { condition: hasUser }
 );
 
-// Resolves with the real appeal id from the backend (shown as the reference number)
-export const submitAppeal = createAsyncThunk('appeal/submit', async (payload, { dispatch }) => {
-  const data = await appealService.createAppeal(payload);
-  dispatch(fetchMyAppeals());
-  return data.id;
-});
+export const submitAppeal = createAsyncThunk(
+  'appeal/submit',
+  (payload) => appealService.createAppeal(payload),
+  { condition: (_, { getState }) => !getState().appeal.submitting },
+);
 
 export const updateAppealStatus = createAsyncThunk(
   'appeal/updateStatus',
@@ -79,6 +78,7 @@ const initialState = {
   myAppeals: [],
   loadingAppeals: false,
   submitting: false,
+  submissionRequestId: null,
 };
 
 const appealSlice = createSlice({
@@ -90,6 +90,8 @@ const appealSlice = createSlice({
     },
     resetAppealForm(state) {
       state.form = initialForm;
+      state.submissionRequestId = null;
+      state.submitting = false;
     },
   },
   extraReducers: (builder) => {
@@ -107,14 +109,23 @@ const appealSlice = createSlice({
       .addCase(fetchMyAppeals.rejected, (state) => {
         state.loadingAppeals = false;
       })
-      .addCase(submitAppeal.pending, (state) => {
+      .addCase(submitAppeal.pending, (state, action) => {
         state.submitting = true;
+        state.submissionRequestId = action.meta.requestId;
       })
-      .addCase(submitAppeal.fulfilled, (state) => {
+      .addCase(submitAppeal.fulfilled, (state, action) => {
+        if (state.submissionRequestId !== action.meta.requestId) return;
         state.submitting = false;
+        state.submissionRequestId = null;
+        state.myAppeals.unshift(action.payload);
+        state.form.refId = `APL-${action.payload.id}`;
+        state.form.submitted = true;
       })
-      .addCase(submitAppeal.rejected, (state) => {
+      .addCase(submitAppeal.rejected, (state, action) => {
+        if (state.submissionRequestId !== action.meta.requestId) return;
         state.submitting = false;
+        state.submissionRequestId = null;
+        state.form.errors = { submit: `Appeal not sent: ${action.error.message}` };
       })
       .addCase(withdrawAppeal.fulfilled, (state, action) => {
         state.myAppeals = state.myAppeals.filter(({ id }) => id !== action.payload.id);

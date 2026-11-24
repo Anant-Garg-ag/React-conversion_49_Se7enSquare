@@ -23,9 +23,10 @@ import { listenerMiddleware } from './listenerMiddleware';
 /**
  * Single Redux store for the whole app.
  * Each feature adds its slice under `reducer`.
- * configureStore also enables Redux DevTools and the default thunk middleware.
  */
 export const store = configureStore({
+  // Form drafts and thunk arguments can contain account credentials.
+  devTools: false,
   reducer: {
     auth: authReducer,
     ui: uiReducer,

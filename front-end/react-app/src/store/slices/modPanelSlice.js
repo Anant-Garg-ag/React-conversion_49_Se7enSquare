@@ -1,14 +1,12 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import { apiRequest } from '../../services/api';
 import { moderationService } from '../../services/moderationService';
-import { QUEUE_TABS } from '../../Components/platform/data/modPanelData';
 import { logout } from './authSlice';
 
 /**
  * Moderator Panel slice: the report queue and the moderator's actions on it.
  * Backend rule for report status: pending -> reviewed -> resolved (no skipping),
  * escalation is allowed from pending or reviewed.
- * The queue tab, search box, selected report and note box are page-only UI and stay in the hook.
  */
 
 // Reports only store targetType/targetId. Look each user/community up once so the
@@ -61,8 +59,7 @@ export const fetchModReports = createAsyncThunk('modPanel/fetchReports', async (
 
 /**
  * Steps: 1) pending -> reviewed, 2) create the sanction, 3) reviewed -> resolved.
- * `reached` remembers how far we got. If a later step fails, the rejected action
- * still carries `reached`, so the queue shows the real backend status (no fake success).
+ * If a later step fails, refresh the queue to reflect the confirmed status.
  */
 export const takeModAction = createAsyncThunk(
   'modPanel/takeAction',
@@ -200,14 +197,6 @@ export const { modPanelUiChanged, resetModPanelState } = modPanelSlice.actions;
 export const selectModReports = (state) => state.modPanel.reports;
 export const selectModReportsLoading = (state) => state.modPanel.loading;
 export const selectModProcessing = (state) => state.modPanel.processing;
-
-// Number of reports in each queue tab
-export const selectQueueCounts = createSelector([selectModReports], (reports) =>
-  QUEUE_TABS.reduce((acc, status) => {
-    acc[status] = reports.filter((r) => r.status === status).length;
-    return acc;
-  }, {})
-);
 
 export const selectRecentModActions = createSelector([selectModReports], (reports) =>
   reports.filter((r) => r.status === 'resolved' && r.action).slice(0, 3)

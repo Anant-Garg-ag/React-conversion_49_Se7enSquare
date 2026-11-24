@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
+import { selectProfileCompleteness } from '../../../store/selectors/profileSelectors';
 import { logout } from '../../../store/slices/authSlice';
 import { selectCurrentPlan, selectPricingLoading } from '../../../store/slices/pricingSlice';
 import {
@@ -11,6 +12,7 @@ import {
   getProfileFieldDefault,
   saveProfile,
   changePassword,
+  deleteAccount,
   applyOrganizer as applyOrganizerThunk,
   fetchModeratorQuiz,
   applyModerator,
@@ -18,22 +20,18 @@ import {
 } from '../../../store/slices/profileSlice';
 import { DEFAULT_PRIVACY, EMPTY_PASSWORDS, EMPTY_ORGANISER, EMPTY_STATEMENT } from '../data/profileSettingsData';
 
-/**
- * Connects Profile Settings to the Redux profile slice (saved profile, application
- * statuses) and pricing slice (plan). The edit forms are page-only and stay local;
- * isDirty compares them with the saved profile in the store.
- */
 export default function useProfileSettings() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { me: user, loading, saving, applying, organiser, moderator, settingsForm, settingsErrors, loadErrors } = useAppSelector(selectProfileState);
+  const profileCompleteness = useAppSelector(selectProfileCompleteness);
   const currentPlan = useAppSelector(selectCurrentPlan);
   const planLoading = useAppSelector(selectPricingLoading);
   const plan = planLoading ? null : { plan: currentPlan };
   const {
     formData: draftFields, privacy: draftPrivacy, passwords, showPassword, avatarPreview,
     activeTab, toastMsg, applicationErrors: draftApplicationErrors, organiserForm, statement,
-    questions, quizAnswers, quizOpen, showCustomOrganiser,
+    questions, quizAnswers, quizOpen, showCustomOrganiser, deletePassword,
   } = settingsForm;
   const formData = draftFields ?? fieldsOf(user || {});
   const privacy = draftPrivacy ?? { ...DEFAULT_PRIVACY, ...user?.privacy };
@@ -289,6 +287,19 @@ export default function useProfileSettings() {
     }
   };
 
+  const setDeletePassword = (value) => setField('deletePassword', value);
+  const handleDeleteAccount = async (event) => {
+    event.preventDefault();
+    if (!deletePassword || !window.confirm('Permanently delete your account?')) return;
+    setDeletePassword('');
+    try {
+      await dispatch(deleteAccount(deletePassword)).unwrap();
+      navigate('/login');
+    } catch (error) {
+      setToastMsg(error.message);
+    }
+  };
+
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
@@ -297,12 +308,12 @@ export default function useProfileSettings() {
   const initials = `${formData.firstName?.[0] || user?.username?.[0] || ''}${formData.lastName?.[0] || ''}`.toUpperCase() || 'U';
 
   return {
-    user, formData, setFormData, privacy, setPrivacy, passwords, setPasswords, showPassword, setShowPassword,
+    user, profileCompleteness, formData, setFormData, privacy, setPrivacy, passwords, setPasswords, showPassword, setShowPassword,
     activeTab, setActiveTab, isDirty, canDiscard, loading, saving, errors, setErrors, toastMsg, initials, avatarPreview,
     handleInputChange, handleAvatarUpload, removePhoto: () => { setAvatarFile(null); handleInputChange('avatar', ''); },
     discardChanges, saveAllChanges, changeUserPassword, handleLogout, navigate, showToast: setToastMsg,
     plan, organiser, moderator, applicationErrors, organiserForm, setOrganiserForm, statement, setStatement,
     questions, quizAnswers, setQuizAnswers, quizOpen, openQuiz, setQuizOpen, applying, applyOrganizer, directApplyOrganizer, submitQuiz,
-    showCustomOrganiser, setShowCustomOrganiser,
+    showCustomOrganiser, setShowCustomOrganiser, deletePassword, setDeletePassword, handleDeleteAccount,
   };
 }

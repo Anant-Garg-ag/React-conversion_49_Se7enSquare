@@ -133,8 +133,8 @@ export const applyModerator = createAsyncThunk(
   }
 );
 
-export const deleteAccount = createAsyncThunk('profile/deleteAccount', async (_, { dispatch }) => {
-  await apiRequest('/users/me', { method: 'DELETE' });
+export const deleteAccount = createAsyncThunk('profile/deleteAccount', async (password, { dispatch }) => {
+  await apiRequest('/users/me', { method: 'DELETE', body: JSON.stringify({ password }) });
   dispatch(logout());
 });
 
@@ -143,6 +143,7 @@ const initialForm = {
   avatarPreview: '', activeTab: 'profile', errors: [], toastMsg: '',
   applicationErrors: null, organiserForm: EMPTY_ORGANISER, statement: EMPTY_STATEMENT,
   questions: [], quizAnswers: [], quizOpen: false, showCustomOrganiser: false,
+  deletePassword: '',
 };
 
 export const profileFieldsOf = (user = {}) => Object.fromEntries(

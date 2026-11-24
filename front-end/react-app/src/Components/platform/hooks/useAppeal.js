@@ -102,13 +102,7 @@ export default function useAppeal() {
       evidence: [],
     };
 
-    // Show the success screen only with the real appeal ID from the backend
-    try {
-      const id = await dispatch(submitAppeal(payload)).unwrap();
-      dispatch(appealFormChanged({ refId: `APL-${id}`, submitted: true }));
-    } catch (err) {
-      setErrors({ submit: `Appeal not sent: ${err.message}` });
-    }
+    return dispatch(submitAppeal(payload));
   };
 
   const resetForm = () => dispatch(resetAppealForm());

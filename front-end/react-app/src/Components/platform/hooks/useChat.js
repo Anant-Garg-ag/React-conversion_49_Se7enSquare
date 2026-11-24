@@ -38,10 +38,6 @@ function toChatUser(raw) {
   };
 }
 
-/**
- * Connects the Chat page to the Redux chat slice (channels, members, messages).
- * The active channel, input box, search and panel toggles are page-only UI state.
- */
 export default function useChat() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -121,7 +117,7 @@ export default function useChat() {
         authorName: user.username || user.firstName || 'User',
       })).unwrap();
     } catch (err) {
-      // The slice has removed the message again; give the text back to retry
+      // Keep any new draft text and restore the failed message if the draft is empty.
       setMsgInput(prev => prev || text);
       showToast(`⚠️ Message not sent: ${err.message}`);
     }

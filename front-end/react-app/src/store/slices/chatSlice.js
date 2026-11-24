@@ -3,12 +3,6 @@ import { apiRequest } from '../../services/api';
 import { DEFAULT_CHANNELS } from '../../Components/platform/data/chatData';
 import { logout } from './authSlice';
 
-/**
- * Chat slice: channels and members of the open community, and the messages of
- * the open channel. The active channel, input box, search and panel toggles
- * are page-only UI and stay in useChat.
- */
-
 const asArray = (data) => (Array.isArray(data) ? data : []);
 const timeOf = (iso) => {
   if (!iso) return '';
