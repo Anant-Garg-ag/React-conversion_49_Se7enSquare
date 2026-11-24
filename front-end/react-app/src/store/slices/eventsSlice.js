@@ -352,6 +352,7 @@ const eventsSlice = createSlice({
         state.modalMode = action.payload.mode || 'create';
         if (action.payload.event) {
           state.selectedEventId = action.payload.event.id;
+          state.currentEvent = action.payload.event;
           state.createForm = { ...initialCreateEventForm, ...action.payload.event };
         }
       }
@@ -359,6 +360,7 @@ const eventsSlice = createSlice({
     closeModal(state) {
       state.modalOpen = false;
       state.selectedEventId = null;
+      state.currentEvent = null;
     },
     // Approval modal
     openApprovalModal(state, action) {
@@ -535,6 +537,7 @@ export const {
 } = eventsSlice.actions;
 
 export const selectEvents = (state) => state.events.items;
+export const selectCurrentEvent = (state) => state.events.currentEvent;
 export const selectEventsLoading = (state) => state.events.loading;
 export const selectEventsLoaded = (state) => state.events.loaded;
 export const selectEventsError = (state) => state.events.error;
