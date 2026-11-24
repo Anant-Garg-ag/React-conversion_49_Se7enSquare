@@ -6,7 +6,6 @@
 export { API_BASE } from '../../../services/api';
 
 export const STORAGE_KEYS = {
-  EVENTS: 'events',
   DRAFT: 'nexus_event_draft',
   USER: 'nexus_user',
   CURRENT_USER: 'currentUser',

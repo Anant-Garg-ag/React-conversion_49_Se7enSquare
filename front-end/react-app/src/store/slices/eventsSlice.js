@@ -1,56 +1,29 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import { eventService } from '../../Components/event-management/services/eventService';
-import { STORAGE_KEYS, EVENT_STATUSES } from '../../Components/event-management/utils/constants';
+import { EVENT_STATUSES } from '../../Components/event-management/utils/constants';
 import { logout } from './authSlice';
 
 /**
  * Events slice, shared by Events, Event Approval, Event Registrants, the Organizer
  * Dashboard and Discovery's event count:
- * - items: all events (with an offline fallback kept in localStorage)
+ * - items: all events fetched directly from the database API
  * - myRegistrations: the logged-in user's registrations
  * - registrants: the list shown on the Event Registrants page
  */
 
 const sameId = (a, b) => Number(a) === Number(b) || String(a) === String(b);
 
-// Offline fallback (STORAGE_KEYS.EVENTS), used only when the backend cannot be reached
-const offline = {
-  read() {
+export const fetchEvents = createAsyncThunk(
+  'events/fetch',
+  async (_, { rejectWithValue }) => {
     try {
-      const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
-      return Array.isArray(items) ? items : [];
-    } catch {
-      return [];
+      const data = await eventService.getEvents();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      return rejectWithValue({ message: err?.message || 'Failed to fetch events' });
     }
-  },
-  write(items) {
-    try {
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(items));
-    } catch { /* storage unavailable */ }
-  },
-  add(item) {
-    this.write([item, ...this.read()]);
-  },
-  update(id, patch) {
-    this.write(this.read().map((e) => (sameId(e.id, id) ? { ...e, ...patch } : e)));
-  },
-  remove(id) {
-    this.write(this.read().filter((e) => !sameId(e.id, id)));
-  },
-};
-
-// eventService sets err.status only when the backend answered. Then it refused
-// on purpose (plan limit, date clash, validation) and the reason must be shown.
-const serverAnswered = (err) => Boolean(err?.status);
-
-export const fetchEvents = createAsyncThunk('events/fetch', async () => {
-  try {
-    const data = await eventService.getEvents();
-    return { items: Array.isArray(data) ? data : [], offline: false };
-  } catch {
-    return { items: offline.read(), offline: true };
   }
-});
+);
 
 // Approve / reject (Event Approval page)
 export const updateEventStatus = createAsyncThunk(
@@ -58,11 +31,9 @@ export const updateEventStatus = createAsyncThunk(
   async ({ id, status }, { rejectWithValue }) => {
     try {
       await eventService.updateEvent(id, { status });
-      return { id, status, local: false };
+      return { id, status };
     } catch (err) {
-      if (serverAnswered(err)) return rejectWithValue({ message: err.message });
-      offline.update(id, { status });
-      return { id, status, local: true };
+      return rejectWithValue({ message: err?.message || 'Failed to update event status' });
     }
   }
 );
@@ -70,43 +41,38 @@ export const updateEventStatus = createAsyncThunk(
 // Create or edit a tournament (Organizer Dashboard). Pass id to edit.
 export const saveEvent = createAsyncThunk(
   'events/save',
-  async ({ id, payload }, { getState, rejectWithValue }) => {
+  async ({ id, payload }, { rejectWithValue }) => {
     try {
       const event = id
         ? await eventService.updateEvent(id, payload)
         : await eventService.createEvent(payload);
-      return { event, local: false };
+      return { event };
     } catch (err) {
-      if (serverAnswered(err)) return rejectWithValue({ message: err.message });
-      if (id) {
-        offline.update(id, payload);
-        const existing = getState().events.items.find((e) => sameId(e.id, id));
-        return { event: { ...existing, ...payload }, local: true };
-      }
-      const created = { ...payload, id: Date.now() };
-      offline.add(created);
-      return { event: created, local: true };
+      return rejectWithValue({ message: err?.message || 'Failed to save event' });
     }
   }
 );
 
-export const deleteEvent = createAsyncThunk('events/delete', async (id) => {
-  try {
-    await eventService.deleteEvent(id);
-  } catch {
-    offline.remove(id);
+export const deleteEvent = createAsyncThunk(
+  'events/delete',
+  async (id, { rejectWithValue }) => {
+    try {
+      await eventService.deleteEvent(id);
+      return id;
+    } catch (err) {
+      return rejectWithValue({ message: err?.message || 'Failed to delete event' });
+    }
   }
-  return id;
-});
+);
 
 export const fetchMyRegistrations = createAsyncThunk(
   'events/fetchMyRegistrations',
-  async (_, { getState }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
       const data = await eventService.getRegistrations(getState().auth.user.id);
       return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
+    } catch (err) {
+      return rejectWithValue({ message: err?.message || 'Failed to fetch registrations' });
     }
   },
   { condition: (_, { getState }) => Boolean(getState().auth.user?.id) }
@@ -204,11 +170,10 @@ export const fetchRegistrants = createAsyncThunk(
       const data = await eventService.getEventRegistrants(eventId);
       return { title: data.eventTitle || 'Tournament', list: data.registrants || [] };
     } catch (err) {
-      const localEvent = offline.read().find((e) => sameId(e.id, eventId));
       let message = 'Could not load registrants.';
-      if (err?.status === 404) message = localEvent ? 'No registrants yet' : 'Event not found';
+      if (err?.status === 404) message = 'Event not found';
       else if (err?.status === 401 || err?.status === 403) message = "You don't have access to this tournament's registrants";
-      return rejectWithValue({ message, status: err?.status, title: localEvent?.title });
+      return rejectWithValue({ message, status: err?.status });
     }
   }
 );
@@ -227,7 +192,7 @@ const initialState = {
   items: [],
   loading: true,
   loaded: false,
-  offline: false,
+  error: null,
   myRegistrations: [],
   registrants: emptyRegistrants,
 };
@@ -240,12 +205,17 @@ const eventsSlice = createSlice({
     builder
       .addCase(fetchEvents.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(fetchEvents.fulfilled, (state, action) => {
         state.loading = false;
         state.loaded = true;
-        state.items = action.payload.items;
-        state.offline = action.payload.offline;
+        state.items = action.payload;
+        state.error = null;
+      })
+      .addCase(fetchEvents.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || action.error?.message || 'Failed to fetch events';
       })
       .addCase(updateEventStatus.fulfilled, (state, action) => {
         const ev = state.items.find((e) => sameId(e.id, action.payload.id));
@@ -291,7 +261,7 @@ const eventsSlice = createSlice({
       })
       .addCase(fetchRegistrants.rejected, (state, action) => {
         state.registrants = {
-          title: action.payload?.title || 'Event',
+          title: 'Event',
           list: [],
           loading: false,
           error: action.payload?.message || 'Could not load registrants.',
