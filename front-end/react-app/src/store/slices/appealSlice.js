@@ -52,7 +52,29 @@ export const submitAppeal = createAsyncThunk('appeal/submit', async (payload, { 
   return data.id;
 });
 
+export const updateAppealStatus = createAsyncThunk(
+  'appeal/updateStatus',
+  ({ id, status }) => apiRequest(`/appeals/${id}/status`, {
+    method: 'PATCH', body: JSON.stringify({ status }),
+  }),
+);
+
+export const addAppealEvidence = createAsyncThunk(
+  'appeal/addEvidence',
+  ({ id, ...evidence }) => apiRequest(`/appeals/${id}/evidence`, {
+    method: 'POST', body: JSON.stringify(evidence),
+  }),
+);
+
+export const withdrawAppeal = createAsyncThunk(
+  'appeal/withdraw',
+  (id) => apiRequest(`/appeals/${id}`, { method: 'DELETE' }),
+);
+
+const initialForm = { appealType: '', statement: '', commitment: '', errors: {}, submitted: false, refId: '' };
+
 const initialState = {
+  form: initialForm,
   sanction: null,
   myAppeals: [],
   loadingAppeals: false,
@@ -62,7 +84,14 @@ const initialState = {
 const appealSlice = createSlice({
   name: 'appeal',
   initialState,
-  reducers: {},
+  reducers: {
+    appealFormChanged(state, { payload }) {
+      Object.assign(state.form, payload);
+    },
+    resetAppealForm(state) {
+      state.form = initialForm;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchActiveSanction.fulfilled, (state, action) => {
@@ -87,9 +116,21 @@ const appealSlice = createSlice({
       .addCase(submitAppeal.rejected, (state) => {
         state.submitting = false;
       })
-      .addCase(logout, () => initialState);
+      .addCase(withdrawAppeal.fulfilled, (state, action) => {
+        state.myAppeals = state.myAppeals.filter(({ id }) => id !== action.payload.id);
+      })
+      .addCase(logout, () => initialState)
+      .addMatcher(
+        (action) => updateAppealStatus.fulfilled.match(action) || addAppealEvidence.fulfilled.match(action),
+        (state, action) => {
+          const index = state.myAppeals.findIndex(({ id }) => id === action.payload.id);
+          if (index !== -1) state.myAppeals[index] = action.payload;
+        },
+      );
   },
 });
+
+export const { appealFormChanged, resetAppealForm } = appealSlice.actions;
 
 export const selectAppealState = (state) => state.appeal;
 

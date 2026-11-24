@@ -29,6 +29,8 @@ function toMessage(m) {
   const authorName = m.authorName || m.author?.name || m.author || 'User';
   return {
     id: m.id,
+    pinned: Boolean(m.pinned),
+    authorId: m.authorId,
     author: authorName,
     initials: authorName.slice(0, 2).toUpperCase(),
     color: '#6366f1',
@@ -78,11 +80,6 @@ export const fetchChatMessages = createAsyncThunk('chat/fetchMessages', async ({
   return asArray(data).map(toMessage);
 });
 
-/**
- * Optimistic send: pending adds the message at once (its temporary id is the
- * thunk's requestId), fulfilled swaps in the real id, rejected removes it.
- * sentAt is passed in so the reducer stays pure (no Date.now() inside it).
- */
 export const sendChatMessage = createAsyncThunk(
   'chat/send',
   async ({ communityId, channelId, content, authorName }, { getState }) => {
@@ -97,8 +94,9 @@ export const sendChatMessage = createAsyncThunk(
         authorName,
       }),
     });
-    return created?.id;
-  }
+    return toMessage(created);
+  },
+  { condition: (_, { getState }) => !getState().chat.sendingMessage }
 );
 
 // The backend toggles (second click removes your reaction) and returns the
@@ -115,7 +113,32 @@ export const toggleChatReaction = createAsyncThunk(
   }
 );
 
+export const togglePinMessage = createAsyncThunk(
+  'chat/togglePin',
+  async (id) => toMessage(await apiRequest(`/messages/${id}/pin`, { method: 'PATCH' })),
+);
+
+export const deleteChatMessage = createAsyncThunk(
+  'chat/delete',
+  (id) => apiRequest(`/messages/${id}`, { method: 'DELETE' }),
+);
+
 const initialState = {
+  selectedChannelId: null,
+  msgInput: '',
+  channelSearch: '',
+  msgSearchQuery: '',
+  replyTo: null,
+  activeMenuId: null,
+  showEmojiPicker: false,
+  showSearch: false,
+  showPinned: false,
+  showMembers: true,
+  muted: false,
+  deafened: false,
+  sendRequestId: null,
+  sendingMessage: false,
+  messageScope: null,
   channels: DEFAULT_CHANNELS,
   channelsLoading: true,
   members: [],
@@ -127,6 +150,9 @@ const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
+    chatUiChanged(state, { payload }) {
+      Object.assign(state, payload);
+    },
     // No community selected: nothing to load or show
     chatCleared: () => ({ ...initialState, channelsLoading: false }),
   },
@@ -154,6 +180,7 @@ const chatSlice = createSlice({
       // must not show a slower, earlier channel's messages.
       .addCase(fetchChatMessages.pending, (state, action) => {
         state.messagesRequestId = action.meta.requestId;
+        state.messageScope = action.meta.arg;
       })
       .addCase(fetchChatMessages.fulfilled, (state, action) => {
         if (action.meta.requestId === state.messagesRequestId) state.messages = action.payload;
@@ -163,23 +190,31 @@ const chatSlice = createSlice({
       })
 
       .addCase(sendChatMessage.pending, (state, action) => {
-        const { content, authorName, sentAt } = action.meta.arg;
-        state.messages.push({
-          id: action.meta.requestId,
-          author: authorName,
-          initials: authorName.slice(0, 2).toUpperCase(),
-          color: '#34d399',
-          text: content,
-          time: timeOf(sentAt),
-          reactions: [],
-        });
+        state.sendingMessage = true;
+        state.sendRequestId = action.meta.requestId;
       })
       .addCase(sendChatMessage.fulfilled, (state, action) => {
-        const msg = state.messages.find((m) => m.id === action.meta.requestId);
-        if (msg && action.payload) msg.id = action.payload;
+        if (state.sendRequestId !== action.meta.requestId) return;
+        state.sendingMessage = false;
+        state.sendRequestId = null;
+        const { communityId, channelId } = action.meta.arg;
+        if (state.messageScope?.communityId === communityId &&
+            state.messageScope?.channelId === channelId &&
+            !state.messages.some(({ id }) => id === action.payload.id)) {
+          state.messages.push(action.payload);
+        }
       })
       .addCase(sendChatMessage.rejected, (state, action) => {
-        state.messages = state.messages.filter((m) => m.id !== action.meta.requestId);
+        if (state.sendRequestId !== action.meta.requestId) return;
+        state.sendingMessage = false;
+        state.sendRequestId = null;
+      })
+      .addCase(togglePinMessage.fulfilled, (state, action) => {
+        const message = state.messages.find(({ id }) => id === action.payload.id);
+        if (message) message.pinned = action.payload.pinned;
+      })
+      .addCase(deleteChatMessage.fulfilled, (state, action) => {
+        state.messages = state.messages.filter(({ id }) => id !== action.payload.id);
       })
 
       .addCase(toggleChatReaction.fulfilled, (state, action) => {
@@ -191,7 +226,7 @@ const chatSlice = createSlice({
   },
 });
 
-export const { chatCleared } = chatSlice.actions;
+export const { chatCleared, chatUiChanged } = chatSlice.actions;
 
 export const selectChat = (state) => state.chat;
 

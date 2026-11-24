@@ -128,6 +128,11 @@ export class UsersController {
     return this.usersService.create(payload);
   }
 
+  @Delete('me')
+  removeMe(@CurrentUser('id') userId: number) {
+    return this.usersService.remove(userId);
+  }
+
   @Delete(':id')
   @Roles(AppRole.ADMIN)
   @ApiOperation({
