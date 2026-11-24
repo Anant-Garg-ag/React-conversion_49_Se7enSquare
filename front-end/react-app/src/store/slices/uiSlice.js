@@ -11,6 +11,7 @@ const initialLandingUi = {
 const initialState = {
   toast: { show: false, icon: '', msg: '', duration: 3000 },
   sidebarCollapsed: false,
+  sidebarMobileOpen: false,
   dashboardSearch: initialDashboardSearch,
   landingUi: initialLandingUi,
 };
@@ -50,13 +51,16 @@ const uiSlice = createSlice({
     toastHidden(state) {
       state.toast.show = false;
     },
+    setSidebarMobileOpen(state, { payload }) {
+      state.sidebarMobileOpen = payload;
+    },
     sidebarToggled(state) {
       state.sidebarCollapsed = !state.sidebarCollapsed;
     },
   },
 });
 
-export const { toastShown, toastHidden, sidebarToggled, dashboardSearchChanged, resetDashboardSearch,
+export const { toastShown, toastHidden, sidebarToggled, setSidebarMobileOpen, dashboardSearchChanged, resetDashboardSearch,
   landingUiChanged, advanceLandingStep, toggleLandingCommunity, resetLandingUi } = uiSlice.actions;
 
 // Selectors

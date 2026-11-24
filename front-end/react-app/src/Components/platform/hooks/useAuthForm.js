@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { authService } from '../../../services/authService';
 import {
+  authFormChanged,
+  resetAuthForm,
   loginSuccess,
   loginUser,
   registerUser,
@@ -32,34 +34,63 @@ export const PERSONAS = [
  */
 export default function useAuthForm() {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
   // ── Redux Auth State ──
-  const loginLoading = useSelector(selectLoginLoading);
-  const reduxLoginError = useSelector(selectLoginError);
-  const regLoading = useSelector(selectRegLoading);
-  const reduxRegError = useSelector(selectRegError);
+  const loginLoading = useAppSelector(selectLoginLoading);
+  const reduxLoginError = useAppSelector(selectLoginError);
+  const regLoading = useAppSelector(selectRegLoading);
+  const reduxRegError = useAppSelector(selectRegError);
 
   // ── 1. Tab & View State ──
+  const { currentTab, cardShake, loginEmail, loginPassword, loginRole, rememberMe, showLoginPassword, loginFieldErrors, regFullName, regEmail, regHandle, regPassword, regConfirm, regRole, regTerms, showRegPassword, showRegConfirm, regFieldErrors, forgotEmail, forgotError, forgotLoading, googleLoading } = useAppSelector((state) => state.auth.form);
+  const setCurrentTab = (value) => dispatch(authFormChanged({ currentTab: value }));
+  const setCardShake = (value) => dispatch(authFormChanged({ cardShake: value }));
+  const setLoginEmail = (value) => dispatch(authFormChanged({ loginEmail: value }));
+  const setLoginPassword = (value) => dispatch(authFormChanged({ loginPassword: value }));
+  const setLoginRole = (value) => dispatch(authFormChanged({ loginRole: value }));
+  const setRememberMe = (value) => dispatch(authFormChanged({ rememberMe: value }));
+  const setShowLoginPassword = (value) => dispatch(authFormChanged({ showLoginPassword: value }));
+  const setLoginFieldErrors = useCallback((update) => dispatch((send, getState) => {
+    const value = typeof update === 'function' ? update(getState().auth.form.loginFieldErrors) : update;
+    send(authFormChanged({ loginFieldErrors: value }));
+  }), [dispatch]);
+  const setRegFullName = (value) => dispatch(authFormChanged({ regFullName: value }));
+  const setRegEmail = (value) => dispatch(authFormChanged({ regEmail: value }));
+  const setRegHandle = (value) => dispatch(authFormChanged({ regHandle: value }));
+  const setRegPassword = (value) => dispatch(authFormChanged({ regPassword: value }));
+  const setRegConfirm = (value) => dispatch(authFormChanged({ regConfirm: value }));
+  const setRegRole = (value) => dispatch(authFormChanged({ regRole: value }));
+  const setRegTerms = (value) => dispatch(authFormChanged({ regTerms: value }));
+  const setShowRegPassword = (value) => dispatch(authFormChanged({ showRegPassword: value }));
+  const setShowRegConfirm = (value) => dispatch(authFormChanged({ showRegConfirm: value }));
+  const setRegFieldErrors = useCallback((update) => dispatch((send, getState) => {
+    const value = typeof update === 'function' ? update(getState().auth.form.regFieldErrors) : update;
+    send(authFormChanged({ regFieldErrors: value }));
+  }), [dispatch]);
+  const setForgotEmail = (value) => dispatch(authFormChanged({ forgotEmail: value }));
+  const setForgotError = (value) => dispatch(authFormChanged({ forgotError: value }));
+  const setForgotLoading = (value) => dispatch(authFormChanged({ forgotLoading: value }));
+  const setGoogleLoading = (value) => dispatch(authFormChanged({ googleLoading: value }));
+
+  const shakeTimeout = useRef(null);
+  useEffect(() => () => {
+    clearTimeout(shakeTimeout.current);
+    dispatch(resetAuthForm());
+  }, [dispatch]);
+
   // Tabs: 'login' | 'register' | 'forgot' | 'forgot-success'
-  const [currentTab, setCurrentTab] = useState('login');
-  const [cardShake, setCardShake] = useState(false);
 
   // ── 2. Toast (app-wide Redux toast) ──
   const showToast = useCallback((icon, msg) => dispatch(toastShown({ icon, msg, duration: 3500 })), [dispatch]);
 
   const triggerShake = () => {
     setCardShake(true);
-    setTimeout(() => setCardShake(false), 450);
+    clearTimeout(shakeTimeout.current);
+    shakeTimeout.current = setTimeout(() => dispatch(authFormChanged({ cardShake: false })), 450);
   };
 
   // ── 3. Login Form State & Validation ──
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginRole, setLoginRole] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
-  const [loginFieldErrors, setLoginFieldErrors] = useState({});
 
   // Merge client field validation errors with Redux server-side login error
   const loginErrors = useMemo(() => ({
@@ -85,7 +116,7 @@ export default function useAuthForm() {
         dispatch(setAuthLoginError({ general: updater.general, isSanctioned: updater.isSanctioned }));
       }
     }
-  }, [dispatch, reduxLoginError]);
+  }, [dispatch, reduxLoginError, setLoginFieldErrors]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -178,16 +209,6 @@ export default function useAuthForm() {
   };
 
   // ── 4. Register Form State & Validation ──
-  const [regFullName, setRegFullName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regHandle, setRegHandle] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regConfirm, setRegConfirm] = useState('');
-  const [regRole, setRegRole] = useState('user');
-  const [regTerms, setRegTerms] = useState(false);
-  const [showRegPassword, setShowRegPassword] = useState(false);
-  const [showRegConfirm, setShowRegConfirm] = useState(false);
-  const [regFieldErrors, setRegFieldErrors] = useState({});
 
   // Merge client field validation errors with Redux server-side registration error
   const regErrors = useMemo(() => ({
@@ -213,7 +234,7 @@ export default function useAuthForm() {
         dispatch(setAuthRegError({ general: updater.general }));
       }
     }
-  }, [dispatch, reduxRegError]);
+  }, [dispatch, reduxRegError, setRegFieldErrors]);
 
   const getPasswordStrength = (pass) => {
     if (!pass) return { level: '', label: '' };
@@ -309,9 +330,6 @@ export default function useAuthForm() {
   };
 
   // ── 5. Forgot Password State ──
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotError, setForgotError] = useState('');
-  const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleForgotSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -332,7 +350,6 @@ export default function useAuthForm() {
   };
 
   // ── 6. Google Sign-In State & Handler ──
-  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
