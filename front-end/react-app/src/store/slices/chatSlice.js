@@ -139,8 +139,10 @@ const initialState = {
   sendRequestId: null,
   sendingMessage: false,
   messageScope: null,
+  channelsRequestId: null,
   channels: DEFAULT_CHANNELS,
   channelsLoading: true,
+  membersRequestId: null,
   members: [],
   messages: [],
   messagesRequestId: null,
@@ -158,21 +160,33 @@ const chatSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchChatChannels.pending, (state) => {
+      .addCase(fetchChatChannels.pending, (state, action) => {
+        state.channelsRequestId = action.meta.requestId;
         state.channelsLoading = true;
       })
       .addCase(fetchChatChannels.fulfilled, (state, action) => {
+        if (state.channelsRequestId !== action.meta.requestId) return;
+        state.channelsRequestId = null;
         state.channelsLoading = false;
         state.channels = action.payload.length > 0 ? action.payload : DEFAULT_CHANNELS;
       })
-      .addCase(fetchChatChannels.rejected, (state) => {
+      .addCase(fetchChatChannels.rejected, (state, action) => {
+        if (state.channelsRequestId !== action.meta.requestId) return;
+        state.channelsRequestId = null;
         state.channelsLoading = false;
         state.channels = DEFAULT_CHANNELS;
       })
+      .addCase(fetchChatMembers.pending, (state, action) => {
+        state.membersRequestId = action.meta.requestId;
+      })
       .addCase(fetchChatMembers.fulfilled, (state, action) => {
+        if (state.membersRequestId !== action.meta.requestId) return;
+        state.membersRequestId = null;
         state.members = action.payload;
       })
-      .addCase(fetchChatMembers.rejected, (state) => {
+      .addCase(fetchChatMembers.rejected, (state, action) => {
+        if (state.membersRequestId !== action.meta.requestId) return;
+        state.membersRequestId = null;
         state.members = [];
       })
 

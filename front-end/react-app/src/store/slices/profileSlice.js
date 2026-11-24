@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { apiRequest } from '../../services/api';
 import { logout, profileUpdated } from './authSlice';
+import { DEFAULT_PRIVACY, EMPTY_PASSWORDS, EMPTY_ORGANISER, EMPTY_STATEMENT } from '../../Components/platform/data/profileSettingsData';
 import { fetchSubscriptionStatus } from './pricingSlice';
 
 /**
@@ -137,10 +138,31 @@ export const deleteAccount = createAsyncThunk('profile/deleteAccount', async (_,
   dispatch(logout());
 });
 
+const initialForm = {
+  formData: null, privacy: null, passwords: EMPTY_PASSWORDS, showPassword: {},
+  avatarPreview: '', activeTab: 'profile', errors: [], toastMsg: '',
+  applicationErrors: null, organiserForm: EMPTY_ORGANISER, statement: EMPTY_STATEMENT,
+  questions: [], quizAnswers: [], quizOpen: false, showCustomOrganiser: false,
+};
+
+export const profileFieldsOf = (user = {}) => Object.fromEntries(
+  ['firstName', 'lastName', 'username', 'email', 'phone', 'bio', 'avatar']
+    .map((key) => [key, user[key] ?? '']),
+);
+
+export const getProfileFieldDefault = (profile, field) => {
+  if (field === 'formData') return profileFieldsOf(profile.me || {});
+  if (field === 'privacy') return { ...DEFAULT_PRIVACY, ...profile.me?.privacy };
+  if (field === 'applicationErrors') return profile.settingsErrors;
+  return initialForm[field];
+};
+
 const initialState = {
+  settingsErrors: {},
+  loadErrors: [],
   lastFetched: 0,
   settingsRequestId: null,
-  settingsForm: {},
+  settingsForm: initialForm,
   me: null,
   loading: true,
   organiser: null,
@@ -157,7 +179,7 @@ const profileSlice = createSlice({
       Object.assign(state.settingsForm, payload);
     },
     resetProfileForm(state) {
-      state.settingsForm = {};
+      state.settingsForm = initialForm;
     },
   },
   extraReducers: (builder) => {
@@ -177,11 +199,14 @@ const profileSlice = createSlice({
         state.me = action.payload.profile;
         state.organiser = action.payload.organiser;
         state.moderator = action.payload.moderator;
+        state.settingsErrors = action.payload.errors;
+        state.loadErrors = [];
       })
       .addCase(fetchProfileSettings.rejected, (state, action) => {
         if (state.settingsRequestId !== action.meta.requestId) return;
         state.settingsRequestId = null;
         state.loading = false;
+        state.loadErrors = action.payload || [action.error.message];
       })
 
       .addCase(saveProfile.pending, (state) => {

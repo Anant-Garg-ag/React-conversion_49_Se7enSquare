@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { logout } from '../../../store/slices/authSlice';
 import { selectCurrentPlan, selectPricingLoading } from '../../../store/slices/pricingSlice';
 import {
   fetchProfileSettings,
+  profileFormChanged,
+  resetProfileForm,
+  profileFieldsOf as fieldsOf,
+  getProfileFieldDefault,
   saveProfile,
   changePassword,
   applyOrganizer as applyOrganizerThunk,
@@ -14,8 +18,6 @@ import {
 } from '../../../store/slices/profileSlice';
 import { DEFAULT_PRIVACY, EMPTY_PASSWORDS, EMPTY_ORGANISER, EMPTY_STATEMENT } from '../data/profileSettingsData';
 
-const fieldsOf = u => Object.fromEntries(['firstName', 'lastName', 'username', 'email', 'phone', 'bio', 'avatar'].map(k => [k, u[k] ?? '']));
-
 /**
  * Connects Profile Settings to the Redux profile slice (saved profile, application
  * statuses) and pricing slice (plan). The edit forms are page-only and stay local;
@@ -23,55 +25,68 @@ const fieldsOf = u => Object.fromEntries(['firstName', 'lastName', 'username', '
  */
 export default function useProfileSettings() {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { me: user, loading, saving, applying, organiser, moderator } = useSelector(selectProfileState);
-  const currentPlan = useSelector(selectCurrentPlan);
-  const planLoading = useSelector(selectPricingLoading);
+  const dispatch = useAppDispatch();
+  const { me: user, loading, saving, applying, organiser, moderator, settingsForm, settingsErrors, loadErrors } = useAppSelector(selectProfileState);
+  const currentPlan = useAppSelector(selectCurrentPlan);
+  const planLoading = useAppSelector(selectPricingLoading);
   const plan = planLoading ? null : { plan: currentPlan };
-  const [formData, setFormData] = useState(fieldsOf({}));
-  const [privacy, setPrivacy] = useState(DEFAULT_PRIVACY);
-  const [passwords, setPasswords] = useState(EMPTY_PASSWORDS);
-  const [showPassword, setShowPassword] = useState({});
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState('');
-  const [activeTab, setActiveTab] = useState('profile');
-  const [errors, setErrors] = useState([]);
-  const [toastMsg, setToastMsg] = useState('');
-  const [applicationErrors, setApplicationErrors] = useState({});
-  const [organiserForm, setOrganiserForm] = useState(EMPTY_ORGANISER);
-  const [statement, setStatement] = useState(EMPTY_STATEMENT);
-  const [questions, setQuestions] = useState([]);
-  const [quizAnswers, setQuizAnswers] = useState([]);
-  const [quizOpen, setQuizOpen] = useState(false);
+  const {
+    formData: draftFields, privacy: draftPrivacy, passwords, showPassword, avatarPreview,
+    activeTab, toastMsg, applicationErrors: draftApplicationErrors, organiserForm, statement,
+    questions, quizAnswers, quizOpen, showCustomOrganiser,
+  } = settingsForm;
+  const formData = draftFields ?? fieldsOf(user || {});
+  const privacy = draftPrivacy ?? { ...DEFAULT_PRIVACY, ...user?.privacy };
+  const errors = settingsForm.errors.length ? settingsForm.errors : loadErrors;
+  const applicationErrors = draftApplicationErrors ?? settingsErrors;
+  const avatarFile = useRef(null);
+  const avatarUrl = useRef('');
 
-  // Fill the forms from the saved profile (on load and after a save)
-  const resetForms = profile => {
+  const setField = (field, update) => dispatch((send, getState) => {
+    const { profile } = getState();
+    const previous = profile.settingsForm[field] ?? getProfileFieldDefault(profile, field);
+    const value = typeof update === 'function' ? update(previous) : update;
+    send(profileFormChanged({ [field]: value }));
+  });
+  const setFormData = (value) => setField('formData', value);
+  const setPrivacy = (value) => setField('privacy', value);
+  const setPasswords = (value) => setField('passwords', value);
+  const setShowPassword = (value) => setField('showPassword', value);
+  const setActiveTab = (value) => setField('activeTab', value);
+  const setErrors = (value) => setField('errors', value);
+  const setToastMsg = (value) => setField('toastMsg', value);
+  const setApplicationErrors = (value) => setField('applicationErrors', value);
+  const setOrganiserForm = (value) => setField('organiserForm', value);
+  const setStatement = (value) => setField('statement', value);
+  const setQuestions = (value) => setField('questions', value);
+  const setQuizAnswers = (value) => setField('quizAnswers', value);
+  const setQuizOpen = (value) => setField('quizOpen', value);
+  const setShowCustomOrganiser = (value) => setField('showCustomOrganiser', value);
+
+  const setAvatarFile = (file) => {
+    if (avatarUrl.current) URL.revokeObjectURL(avatarUrl.current);
+    avatarFile.current = file;
+    avatarUrl.current = file ? URL.createObjectURL(file) : '';
+    setField('avatarPreview', avatarUrl.current);
+  };
+
+  const resetForms = (profile) => {
     setFormData(fieldsOf(profile));
     setPrivacy({ ...DEFAULT_PRIVACY, ...profile.privacy });
   };
 
   useEffect(() => {
-    let cancelled = false;
-    dispatch(fetchProfileSettings()).unwrap()
-      .then(({ profile, errors: statusErrors }) => {
-        if (cancelled) return;
-        setFormData(fieldsOf(profile));
-        setPrivacy({ ...DEFAULT_PRIVACY, ...profile.privacy });
-        setApplicationErrors(statusErrors);
-      })
-      .catch(messages => { if (!cancelled && Array.isArray(messages)) setErrors(messages); });
-    return () => { cancelled = true; };
+    dispatch(fetchProfileSettings());
+    return () => {
+      if (avatarUrl.current) URL.revokeObjectURL(avatarUrl.current);
+      avatarUrl.current = '';
+      avatarFile.current = null;
+      dispatch(resetProfileForm());
+    };
   }, [dispatch]);
 
-  useEffect(() => {
-    if (!avatarFile) { setAvatarPreview(''); return; }
-    const url = URL.createObjectURL(avatarFile);
-    setAvatarPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [avatarFile]);
-
   const isDirty = Boolean(user && (
-    avatarFile ||
+    avatarPreview ||
     JSON.stringify(formData) !== JSON.stringify(fieldsOf(user)) ||
     JSON.stringify(privacy) !== JSON.stringify({ ...DEFAULT_PRIVACY, ...user.privacy }) ||
     Object.values(passwords).some(Boolean) ||
@@ -167,10 +182,10 @@ export default function useProfileSettings() {
       Object.entries(formData).filter(([key, value]) => value !== (user[key] ?? ''))
     );
     changes.privacy = privacy;
-    if (!avatarFile && formData.avatar === '' && user.avatar) changes.avatar = null;
+    if (!avatarFile.current && formData.avatar === '' && user.avatar) changes.avatar = null;
 
     try {
-      const saved = await dispatch(saveProfile({ changes, avatarFile })).unwrap();
+      const saved = await dispatch(saveProfile({ changes, avatarFile: avatarFile.current })).unwrap();
       resetForms(saved);
       setAvatarFile(null);
       profileSaved = true;
@@ -288,5 +303,6 @@ export default function useProfileSettings() {
     discardChanges, saveAllChanges, changeUserPassword, handleLogout, navigate, showToast: setToastMsg,
     plan, organiser, moderator, applicationErrors, organiserForm, setOrganiserForm, statement, setStatement,
     questions, quizAnswers, setQuizAnswers, quizOpen, openQuiz, setQuizOpen, applying, applyOrganizer, directApplyOrganizer, submitQuiz,
+    showCustomOrganiser, setShowCustomOrganiser,
   };
 }
