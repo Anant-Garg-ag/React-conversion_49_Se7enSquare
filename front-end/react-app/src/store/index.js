@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import authReducer from './slices/authSlice';
+import authReducer, { logout } from './slices/authSlice';
+import { configureSession } from '../services/api';
 import uiReducer from './slices/uiSlice';
 import pricingReducer from './slices/pricingSlice';
 import reportReducer from './slices/reportSlice';
@@ -47,4 +48,9 @@ export const store = configureStore({
   },
   // The listener middleware goes first, as recommended by Redux Toolkit
   middleware: (getDefaultMiddleware) => getDefaultMiddleware().prepend(listenerMiddleware.middleware),
+});
+
+configureSession({
+  read: () => store.getState().auth.user,
+  end: () => store.dispatch(logout()),
 });
